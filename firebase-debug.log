@@ -1,0 +1,108 @@
+[debug] [2026-08-13T05:37:05.587Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-08-13T05:37:05.588Z] > authorizing via signed-in user (chikaosro@gmail.com)
+[debug] [2026-08-13T05:37:05.588Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-08-13T05:37:05.588Z] > authorizing via signed-in user (chikaosro@gmail.com)
+[debug] [2026-08-13T05:37:05.589Z] Checked if tokens are valid: false, expires at: 1786560880401
+[debug] [2026-08-13T05:37:05.589Z] Checked if tokens are valid: false, expires at: 1786560880401
+[debug] [2026-08-13T05:37:05.589Z] > refreshing access token with scopes: []
+[debug] [2026-08-13T05:37:05.589Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2026-08-13T05:37:05.589Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-08-13T05:37:05.590Z] Checked if tokens are valid: false, expires at: 1786560880401
+[debug] [2026-08-13T05:37:05.590Z] Checked if tokens are valid: false, expires at: 1786560880401
+[debug] [2026-08-13T05:37:05.590Z] > refreshing access token with scopes: []
+[debug] [2026-08-13T05:37:05.590Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2026-08-13T05:37:05.590Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-08-13T05:37:05.590Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-08-13T05:37:05.590Z] > authorizing via signed-in user (chikaosro@gmail.com)
+[debug] [2026-08-13T05:37:05.590Z] Checked if tokens are valid: false, expires at: 1786560880401
+[debug] [2026-08-13T05:37:05.590Z] Checked if tokens are valid: false, expires at: 1786560880401
+[debug] [2026-08-13T05:37:05.590Z] > refreshing access token with scopes: []
+[debug] [2026-08-13T05:37:05.590Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2026-08-13T05:37:05.590Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-08-13T05:37:05.707Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 200
+[debug] [2026-08-13T05:37:05.707Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-08-13T05:37:05.723Z] >>> [apiv2][query] GET https://cloudbilling.googleapis.com/v1/projects/streek-dev/billingInfo [none]
+[debug] [2026-08-13T05:37:05.725Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 200
+[debug] [2026-08-13T05:37:05.725Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-08-13T05:37:05.737Z] >>> [apiv2][query] GET https://cloudbilling.googleapis.com/v1/projects/streek-dev/billingInfo [none]
+[debug] [2026-08-13T05:37:05.737Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 200
+[debug] [2026-08-13T05:37:05.737Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-08-13T05:37:05.748Z] >>> [apiv2][query] GET https://cloudbilling.googleapis.com/v1/projects/streek-dev/billingInfo [none]
+[debug] [2026-08-13T05:37:05.909Z] <<< [apiv2][status] GET https://cloudbilling.googleapis.com/v1/projects/streek-dev/billingInfo 200
+[debug] [2026-08-13T05:37:05.909Z] <<< [apiv2][body] GET https://cloudbilling.googleapis.com/v1/projects/streek-dev/billingInfo {"name":"projects/streek-dev/billingInfo","projectId":"streek-dev","billingAccountName":"","billingEnabled":false}
+[debug] [2026-08-13T05:37:05.915Z] Checked if tokens are valid: true, expires at: 1786603024737
+[debug] [2026-08-13T05:37:05.915Z] Checked if tokens are valid: true, expires at: 1786603024737
+[debug] [2026-08-13T05:37:05.924Z] Checked if tokens are valid: true, expires at: 1786603024737
+[debug] [2026-08-13T05:37:05.924Z] Checked if tokens are valid: true, expires at: 1786603024737
+[debug] [2026-08-13T05:37:05.924Z] Checked if tokens are valid: true, expires at: 1786603024737
+[debug] [2026-08-13T05:37:05.925Z] Checked if tokens are valid: true, expires at: 1786603024737
+[debug] [2026-08-13T05:37:05.925Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/streek-dev/services/firestore.googleapis.com [none]
+[debug] [2026-08-13T05:37:05.925Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/streek-dev/services/firestore.googleapis.com x-goog-quota-user=projects/streek-dev
+[debug] [2026-08-13T05:37:05.926Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/streek-dev/services/firebaseapphosting.googleapis.com [none]
+[debug] [2026-08-13T05:37:05.926Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/streek-dev/services/firebaseapphosting.googleapis.com x-goog-quota-user=projects/streek-dev
+[debug] [2026-08-13T05:37:05.927Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/streek-dev/services/firebaseio.com [none]
+[debug] [2026-08-13T05:37:05.927Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/streek-dev/services/firebaseio.com x-goog-quota-user=projects/streek-dev
+[debug] [2026-08-13T05:37:05.943Z] <<< [apiv2][status] GET https://cloudbilling.googleapis.com/v1/projects/streek-dev/billingInfo 200
+[debug] [2026-08-13T05:37:05.943Z] <<< [apiv2][body] GET https://cloudbilling.googleapis.com/v1/projects/streek-dev/billingInfo {"name":"projects/streek-dev/billingInfo","projectId":"streek-dev","billingAccountName":"","billingEnabled":false}
+[debug] [2026-08-13T05:37:05.943Z] Checked if tokens are valid: true, expires at: 1786603024737
+[debug] [2026-08-13T05:37:05.943Z] Checked if tokens are valid: true, expires at: 1786603024737
+[debug] [2026-08-13T05:37:05.945Z] Checked if tokens are valid: true, expires at: 1786603024737
+[debug] [2026-08-13T05:37:05.945Z] Checked if tokens are valid: true, expires at: 1786603024737
+[debug] [2026-08-13T05:37:05.945Z] Checked if tokens are valid: true, expires at: 1786603024737
+[debug] [2026-08-13T05:37:05.945Z] Checked if tokens are valid: true, expires at: 1786603024737
+[debug] [2026-08-13T05:37:05.945Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/streek-dev/services/firestore.googleapis.com [none]
+[debug] [2026-08-13T05:37:05.945Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/streek-dev/services/firestore.googleapis.com x-goog-quota-user=projects/streek-dev
+[debug] [2026-08-13T05:37:05.946Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/streek-dev/services/firebaseapphosting.googleapis.com [none]
+[debug] [2026-08-13T05:37:05.946Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/streek-dev/services/firebaseapphosting.googleapis.com x-goog-quota-user=projects/streek-dev
+[debug] [2026-08-13T05:37:05.946Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/streek-dev/services/firebaseio.com [none]
+[debug] [2026-08-13T05:37:05.946Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/streek-dev/services/firebaseio.com x-goog-quota-user=projects/streek-dev
+[debug] [2026-08-13T05:37:05.950Z] <<< [apiv2][status] GET https://cloudbilling.googleapis.com/v1/projects/streek-dev/billingInfo 200
+[debug] [2026-08-13T05:37:05.950Z] <<< [apiv2][body] GET https://cloudbilling.googleapis.com/v1/projects/streek-dev/billingInfo {"name":"projects/streek-dev/billingInfo","projectId":"streek-dev","billingAccountName":"","billingEnabled":false}
+[debug] [2026-08-13T05:37:05.951Z] Checked if tokens are valid: true, expires at: 1786603024737
+[debug] [2026-08-13T05:37:05.951Z] Checked if tokens are valid: true, expires at: 1786603024737
+[debug] [2026-08-13T05:37:05.952Z] Checked if tokens are valid: true, expires at: 1786603024737
+[debug] [2026-08-13T05:37:05.952Z] Checked if tokens are valid: true, expires at: 1786603024737
+[debug] [2026-08-13T05:37:05.952Z] Checked if tokens are valid: true, expires at: 1786603024737
+[debug] [2026-08-13T05:37:05.952Z] Checked if tokens are valid: true, expires at: 1786603024737
+[debug] [2026-08-13T05:37:05.952Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/streek-dev/services/firestore.googleapis.com [none]
+[debug] [2026-08-13T05:37:05.952Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/streek-dev/services/firestore.googleapis.com x-goog-quota-user=projects/streek-dev
+[debug] [2026-08-13T05:37:05.953Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/streek-dev/services/firebaseapphosting.googleapis.com [none]
+[debug] [2026-08-13T05:37:05.953Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/streek-dev/services/firebaseapphosting.googleapis.com x-goog-quota-user=projects/streek-dev
+[debug] [2026-08-13T05:37:05.953Z] >>> [apiv2][query] GET https://serviceusage.googleapis.com/v1/projects/streek-dev/services/firebaseio.com [none]
+[debug] [2026-08-13T05:37:05.953Z] >>> [apiv2][(partial)header] GET https://serviceusage.googleapis.com/v1/projects/streek-dev/services/firebaseio.com x-goog-quota-user=projects/streek-dev
+[debug] [2026-08-13T05:37:06.148Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/streek-dev/services/firestore.googleapis.com 403
+[debug] [2026-08-13T05:37:06.148Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/streek-dev/services/firestore.googleapis.com [omitted]
+[debug] [2026-08-13T05:37:06.155Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/streek-dev/services/firebaseapphosting.googleapis.com 403
+[debug] [2026-08-13T05:37:06.155Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/streek-dev/services/firebaseapphosting.googleapis.com [omitted]
+[debug] [2026-08-13T05:37:06.156Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/streek-dev/services/firestore.googleapis.com 403
+[debug] [2026-08-13T05:37:06.156Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/streek-dev/services/firestore.googleapis.com [omitted]
+[debug] [2026-08-13T05:37:06.156Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/streek-dev/services/firebaseapphosting.googleapis.com 403
+[debug] [2026-08-13T05:37:06.156Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/streek-dev/services/firebaseapphosting.googleapis.com [omitted]
+[debug] [2026-08-13T05:37:06.156Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/streek-dev/services/firestore.googleapis.com 403
+[debug] [2026-08-13T05:37:06.156Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/streek-dev/services/firestore.googleapis.com [omitted]
+[debug] [2026-08-13T05:37:06.157Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/streek-dev/services/firebaseapphosting.googleapis.com 403
+[debug] [2026-08-13T05:37:06.157Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/streek-dev/services/firebaseapphosting.googleapis.com [omitted]
+[debug] [2026-08-13T05:37:06.157Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/streek-dev/services/firebaseio.com 403
+[debug] [2026-08-13T05:37:06.157Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/streek-dev/services/firebaseio.com [omitted]
+[debug] [2026-08-13T05:37:06.157Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/streek-dev/services/firebaseio.com 403
+[debug] [2026-08-13T05:37:06.157Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/streek-dev/services/firebaseio.com [omitted]
+[debug] [2026-08-13T05:37:06.160Z] <<< [apiv2][status] GET https://serviceusage.googleapis.com/v1/projects/streek-dev/services/firebaseio.com 403
+[debug] [2026-08-13T05:37:06.160Z] <<< [apiv2][body] GET https://serviceusage.googleapis.com/v1/projects/streek-dev/services/firebaseio.com [omitted]
+[debug] [2026-08-13T05:37:06.202Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-08-13T05:37:06.204Z] > authorizing via signed-in user (chikaosro@gmail.com)
+[debug] [2026-08-13T05:37:06.205Z] Checked if tokens are valid: true, expires at: 1786603024737
+[debug] [2026-08-13T05:37:06.205Z] Checked if tokens are valid: true, expires at: 1786603024737
+[debug] [2026-08-13T05:37:06.205Z] >>> [apiv2][query] GET https://cloudbilling.googleapis.com/v1/projects/streek-dev/billingInfo [none]
+[debug] [2026-08-13T05:37:06.213Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-08-13T05:37:06.213Z] > authorizing via signed-in user (chikaosro@gmail.com)
+[debug] [2026-08-13T05:37:06.213Z] Checked if tokens are valid: true, expires at: 1786603024737
+[debug] [2026-08-13T05:37:06.213Z] Checked if tokens are valid: true, expires at: 1786603024737
+[debug] [2026-08-13T05:37:06.213Z] >>> [apiv2][query] GET https://cloudbilling.googleapis.com/v1/projects/streek-dev/billingInfo [none]
+[debug] [2026-08-13T05:37:06.286Z] <<< [apiv2][status] GET https://cloudbilling.googleapis.com/v1/projects/streek-dev/billingInfo 200
+[debug] [2026-08-13T05:37:06.286Z] <<< [apiv2][body] GET https://cloudbilling.googleapis.com/v1/projects/streek-dev/billingInfo {"name":"projects/streek-dev/billingInfo","projectId":"streek-dev","billingAccountName":"","billingEnabled":false}
+[debug] [2026-08-13T05:37:06.288Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-08-13T05:37:06.288Z] > authorizing via signed-in user (chikaosro@gmail.com)
+[debug] [2026-08-13T05:37:06.346Z] <<< [apiv2][status] GET https://cloudbilling.googleapis.com/v1/projects/streek-dev/billingInfo 200
+[debug] [2026-08-13T05:37:06.346Z] <<< [apiv2][body] GET https://cloudbilling.googleapis.com/v1/projects/streek-dev/billingInfo {"name":"projects/streek-dev/billingInfo","projectId":"streek-dev","billingAccountName":"","billingEnabled":false}
+[debug] [2026-08-13T05:37:06.347Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-08-13T05:37:06.347Z] > authorizing via signed-in user (chikaosro@gmail.com)
