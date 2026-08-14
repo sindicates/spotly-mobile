@@ -10,7 +10,7 @@ Related: [tech stack](../TECH_STACK.md) · [onboarding](onboarding.md)
 
 | ID | Requirement |
 | --- | --- |
-| AUTH-1 | Signup requires an email address on an accepted `.edu` domain. Non-`.edu` addresses are rejected at entry. |
+| AUTH-1 | Signup requires an email address on the `case.edu` domain. Non-`case.edu` addresses are rejected at entry. |
 | AUTH-2 | Verification is by magic link. No password is set or stored. |
 | AUTH-3 | An account consists of an ID and a verified email. No display name, avatar, or profile page exists. |
 | AUTH-4 | Account ID is never exposed to other users through any surface, including API responses. |
@@ -37,11 +37,11 @@ Magic link only, no passwords.
 - Handle the inbound link with `expo-linking` + `supabase.auth.setSession()` from the URL fragment.
 - Persist sessions with an AsyncStorage (or expo-secure-store) adapter on the Supabase client, plus `detectSessionInUrl: false` — that option is for web and breaks native.
 
-**Email gate:** accept any `.edu` address. Enforce it in an auth hook or a `before insert` trigger on `auth.users`, not only in the form — client-side validation is a UX affordance, not a gate.
+**Email gate:** accept only `case.edu` addresses. Enforce it in an auth hook or a `before insert` trigger on `auth.users`, not only in the form — client-side validation is a UX affordance, not a gate.
 
-> Decision note: the PRD's `.edu` gate and the landing page's "CWRU only" conflict. Resolved toward **any `.edu`** — it's the looser rule, costs nothing to implement, and keeps the door open for testers outside CWRU. Tightening to `case.edu` later is one predicate.
+> Decision note: the PRD's `.edu` gate and the landing page's "CWRU only" conflict. Resolved toward **`case.edu` only** — it matches the landing page's "CWRU only" claim and keeps the gate meaningful as a trust signal.
 >
-> This does **not** solve judge access — a judge on a `stellic.com` address fails any `.edu` rule. Judges get in via the demo video plus a pre-made test account. See [PATHFINDERS.md](../PATHFINDERS.md#judge-access-spotly-specific).
+> This does **not** solve judge access — a judge on a `stellic.com` address fails the `case.edu` rule. Judges get in via the demo video plus a pre-made test account. See [PATHFINDERS.md](../PATHFINDERS.md#judge-access-spotly-specific).
 
 ### Screens
 
