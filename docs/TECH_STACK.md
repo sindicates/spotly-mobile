@@ -19,6 +19,7 @@ Use `npx expo install` for anything React-Native-adjacent, never bare `npm insta
 | Vector | pgvector, cosine distance (`<=>`). Similarity is `1 - distance`. |
 | Embeddings | OpenAI `text-embedding-3-small` (1536 dims). Key lives only in Edge Function secrets. |
 | Session | `@supabase/supabase-js` + AsyncStorage. `detectSessionInUrl: false` — the web default breaks native. |
+| Local state | `react-native-mmkv` v4 (JSI/Nitro, synchronous). Per-install state only — currently just the onboarding flag. |
 | Location | `expo-location`, foreground only. Unused in v1 UI; wired so the dev build is proven. |
 | Build | EAS Build → custom development build. Internal distribution + TestFlight. |
 
@@ -33,6 +34,10 @@ Use `npx expo install` for anything React-Native-adjacent, never bare `npm insta
 **Styling.** NativeWind 4 compiles Tailwind classes at build time. The Metro wrapper points at `src/global.css`; `tailwind.config.js` scans `src/app` and `src/components`. Pin Tailwind to 3.x — v4 is a different compiler and NativeWind 4 does not speak it. Styles then vanish while the bundle still builds.
 
 **Auth on device.** Magic link only; password sign-in is disabled in Supabase. `expo-linking` delivers the inbound URL; `(auth)/callback` calls `supabase.auth.setSession()` from the fragment. Persist the session with AsyncStorage (or expo-secure-store). Do not turn `detectSessionInUrl` on.
+
+**Device-local storage.** Two stores, and they are not interchangeable. AsyncStorage is async and backs the Supabase session adapter, because that is the API `createClient` expects. MMKV is synchronous and backs `src/lib/storage.ts`, because the route guards read the onboarding flag during render and an async read there means a frame with the wrong screen.
+
+MMKV v4 is Nitro-based: it needs `react-native-nitro-modules` (a peer dependency, pinned explicitly rather than left to npm's auto-peer-install) and a native rebuild. `new MMKV()` is gone in v4 — use the `createMMKV()` factory; `MMKV` is now a type-only export. On web the package resolves a `localStorage` implementation through platform extensions, but it throws during expo-router's Node prerender pass, so `storage.ts` falls back to an in-memory store when `window` is undefined. Same guard as `supabase.ts`, same reason.
 
 **Location.** `NSLocationWhenInUseUsageDescription` / Android fine+coarse are declared. v1 check-ins are trust-based (OCC-5) — the permission is in the binary so a later geo gate does not require a new native build. Do not show a location prompt until a screen actually needs the fix.
 

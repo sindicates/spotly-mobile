@@ -64,8 +64,13 @@ function RootNavigator() {
         <Stack.Screen name="(auth)/sign-in" />
       </Stack.Protected>
 
+      {/*
+        Declaration order is the fallback order, so `survey` comes first: it is
+        where onboarding starts, and `first-review` is only ever reached from it.
+      */}
       <Stack.Protected guard={!!session && !onboardingComplete}>
         <Stack.Screen name="(onboarding)/survey" />
+        <Stack.Screen name="(onboarding)/first-review" />
       </Stack.Protected>
 
       <Stack.Protected guard={!!session && onboardingComplete}>

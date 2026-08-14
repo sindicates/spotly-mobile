@@ -1,11 +1,16 @@
 import { useLinkingURL } from 'expo-linking';
 import { router } from 'expo-router';
+import { useColorScheme } from 'nativewind';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Platform, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Platform, View } from 'react-native';
 
+import { Screen } from '@/components/screen';
+import { Button } from '@/components/ui/button';
+import { Text } from '@/components/ui/text';
 import { parseMagicLinkURL } from '@/lib/auth-url';
 import { useSession } from '@/lib/session';
 import { supabase } from '@/lib/supabase';
+import { THEME } from '@/lib/theme';
 
 /**
  * Deep-link target for the magic link (AUTH-2).
@@ -20,7 +25,8 @@ import { supabase } from '@/lib/supabase';
  */
 export default function AuthCallback() {
   const url = useLinkingURL();
-  const { session, onboardingComplete, refreshProfile } = useSession();
+  const { colorScheme } = useColorScheme();
+  const { session, onboardingComplete } = useSession();
   const [phase, setPhase] = useState<'working' | 'ready' | 'error'>('working');
   const [message, setMessage] = useState('');
 
@@ -60,18 +66,21 @@ export default function AuthCallback() {
         window.history.replaceState(null, '', window.location.pathname);
       }
 
-      await refreshProfile();
+      // No profile fetch to await: `setSession` fires onAuthStateChange, and the
+      // provider reads the onboarding flag out of device storage synchronously
+      // in that same handler.
       if (!cancelled) setPhase('ready');
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [url, phase, refreshProfile]);
+  }, [url, phase]);
 
-  // Navigate in a separate effect so it runs after a render where the guards
-  // already reflect the refreshed onboardingComplete. Navigating from inside
-  // the async block above can beat the state flush and flash the wrong screen.
+  // Navigate in a separate effect, gated on `session` having actually landed in
+  // provider state — that is the render where the guards agree. Navigating from
+  // inside the async block above can beat the state flush and flash the wrong
+  // screen.
   useEffect(() => {
     if (phase !== 'ready' || !session) return;
     router.replace(onboardingComplete ? '/' : '/survey');
@@ -89,25 +98,34 @@ export default function AuthCallback() {
 
   if (phase === 'error') {
     return (
-      <View className="flex-1 items-center justify-center gap-3 bg-white px-8">
-        <Text className="text-center text-lg font-semibold text-neutral-900">
-          That link didn&apos;t work
-        </Text>
-        <Text className="text-center text-sm text-neutral-500">{message}</Text>
-        <TouchableOpacity
-          onPress={() => router.replace('/sign-in')}
-          className="w-full items-center rounded-lg bg-neutral-900 py-3"
-        >
-          <Text className="font-semibold text-white">Request a new link</Text>
-        </TouchableOpacity>
-      </View>
+      <Screen className="justify-center px-5">
+        <View className="gap-3">
+          <Text variant="h3">That link didn&apos;t work</Text>
+          {/*
+            The server's wording, not a paraphrase. "Expired" and "already used"
+            are different problems with the same fix, and only it knows which.
+          */}
+          <Text className="text-muted-foreground">{message}</Text>
+          <Button className="mt-2" onPress={() => router.replace('/sign-in')}>
+            <Text>Request a new link</Text>
+          </Button>
+        </View>
+      </Screen>
     );
   }
 
   return (
-    <View className="flex-1 items-center justify-center gap-3 bg-white px-8">
-      <ActivityIndicator />
-      <Text className="text-sm text-neutral-500">Signing you in…</Text>
-    </View>
+    <Screen className="items-center justify-center gap-3 px-5">
+      {/*
+        A spinner rather than a skeleton, and the one place in the app that is
+        correct: nothing is loading into a known layout here — the screen exists
+        only to hand tokens to `setSession` and get out of the way.
+
+        `color` is a prop, not a style, so `className` cannot reach it. THEME is
+        the mirror of the same tokens for exactly this case.
+      */}
+      <ActivityIndicator color={THEME[colorScheme ?? 'light'].mutedForeground} />
+      <Text variant="muted">Signing you in…</Text>
+    </Screen>
   );
 }

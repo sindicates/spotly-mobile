@@ -30,6 +30,8 @@ npx expo run:android
 
 These compile on your machine, install the dev client, and start Metro. Pass `--device` to pick a connected phone.
 
+Rerun one of these after pulling a change that adds a native module — `react-native-mmkv` is one, so a dev client built before it landed will crash on launch rather than fail gracefully. A JS-only change needs nothing but Metro.
+
 ### EAS cloud builds
 
 Use this when you cannot build locally (no Mac, or no native toolchain set up).
@@ -53,8 +55,24 @@ Open the project from the installed dev client.
 
 ```bash
 npm run typecheck
+npm run lint
 npm run doctor
 ```
+
+## Database
+
+Schema lives in `supabase/migrations/`. Never edit the hosted schema by hand — local and remote drift the moment you do.
+
+```bash
+npm run db:reset      # rebuild the local database and load supabase/seed.sql
+npm run gen:types     # regenerate src/lib/database.types.ts from the linked project
+```
+
+After writing a migration: apply it locally, regenerate types, then `npx supabase db push` to send it up. `gen:types` needs the project linked and a `supabase login`, and `db:reset` needs Docker running.
+
+`src/lib/database.types.ts` is generated output. Editing it by hand works right up until the next regeneration silently reverts you.
+
+Seed data is local only — `db push` applies migrations, not `seed.sql`.
 
 ## Docs
 

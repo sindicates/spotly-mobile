@@ -1,6 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
 
+import type { Database } from '@/lib/database.types';
+
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -26,6 +28,12 @@ if (!supabaseUrl || !supabaseAnonKey) {
  * over. AsyncStorage's web implementation reads `window.localStorage`, which
  * doesn't exist during that Node pass, so the client falls back to a no-op
  * storage there and only touches AsyncStorage once actually running in a browser.
+ *
+ * The `<Database>` parameter is what makes the generated schema load-bearing
+ * rather than decorative: every `.from()` table name, selected column, and
+ * `.rpc()` argument is checked against it, so a migration that renames a column
+ * fails `npm run typecheck` instead of returning undefined at runtime. Regenerate
+ * with `npm run gen:types` after any migration.
  */
 const storage =
   typeof window === 'undefined'
@@ -36,7 +44,7 @@ const storage =
       }
     : AsyncStorage;
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
     storage,
     autoRefreshToken: true,
@@ -44,3 +52,41 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: false,
   },
 });
+
+/** The shape supabase-js returns in `error`, narrowed to what is used here. */
+type ServerError = { message: string; code?: string; hint?: string | null };
+
+/**
+ * A PostgREST failure, rethrown as a real `Error`.
+ *
+ * supabase-js returns errors rather than throwing them, and a `PostgrestError`
+ * is a plain object — `instanceof Error` is false, so it does not survive a
+ * `catch` that expects one. Wrapping is what lets a screen `try`/`catch` around
+ * a whole write path.
+ *
+ * The message/reason split matters. Spotly's RPCs raise machine tokens
+ * (`review_exists`, `spot_exists`, `not_authenticated`) and put the sentence a
+ * person should read in `hint`. So `message` is the hint when there is one —
+ * that is what screens render — and `reason` keeps the token, which is what
+ * code branches on. Branching on a hint would break the moment anyone reworded
+ * it; showing a raw token would put `review_exists` in front of a user.
+ */
+export class RequestError extends Error {
+  /** SQLSTATE. P0001 for a `raise exception`, 23505 for a unique violation. */
+  readonly code?: string;
+  /** The server's raw message — a token for RPC-raised errors. */
+  readonly reason: string;
+
+  constructor({ message, code, hint }: ServerError) {
+    super(hint || message);
+    this.name = 'RequestError';
+    this.code = code;
+    this.reason = message;
+  }
+}
+
+/** Turns the `{ data, error }` pair into a value or a throw. */
+export function unwrap<T>(result: { data: T | null; error: ServerError | null }): T {
+  if (result.error) throw new RequestError(result.error);
+  return result.data as T;
+}

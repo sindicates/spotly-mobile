@@ -8,16 +8,16 @@ import {
   type ReactNode,
 } from 'react';
 
+import { readOnboardingComplete, writeOnboardingComplete } from '@/lib/storage';
 import { supabase } from '@/lib/supabase';
 
 type SessionState = {
   session: Session | null;
   onboardingComplete: boolean;
-  /** True until both the session and the first profile read have settled. */
+  /** True until the stored session has been read back. */
   loading: boolean;
-  /** Re-reads the profile and resolves *after* state is set, so a caller that
-   *  awaits it can navigate knowing the route guards already agree. */
-  refreshProfile: () => Promise<boolean>;
+  /** Marks onboarding done for the signed-in account and flips the guard. */
+  completeOnboarding: () => void;
 };
 
 const SessionContext = createContext<SessionState | null>(null);
@@ -29,29 +29,17 @@ export function useSession(): SessionState {
 }
 
 /**
- * A missing profile row is treated as "not onboarded", never as an error.
+ * Session comes from Supabase; the onboarding flag comes from device storage.
  *
- * `maybeSingle` rather than `single`, which throws on zero rows. If the signup
- * trigger ever fails to fire, the cost of this choice is that the user repeats
- * onboarding; the cost of the alternative is an account that can never route
- * anywhere. The same reasoning applies to `complete_onboarding` later — it
- * should upsert rather than update.
+ * The flag is deliberately *not* a column on `profiles`. Onboarding gating is
+ * app routing rather than a data invariant (onboarding.md), so nothing on the
+ * server reads it — which makes a round trip to fetch it pure latency on every
+ * cold start. Reading it locally is synchronous, so session and flag always land
+ * in the same render and the guards can never briefly disagree.
+ *
+ * The cost is that it is per-install: a reinstall or a second device sends the
+ * user through onboarding again. See onboarding.md for that trade.
  */
-export async function readOnboardingComplete(userId: string): Promise<boolean> {
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('onboarding_complete')
-    .eq('id', userId)
-    .maybeSingle();
-
-  if (error) {
-    console.warn('[session] profile read failed:', error.message);
-    return false;
-  }
-
-  return data?.onboarding_complete ?? false;
-}
-
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [onboardingComplete, setOnboardingComplete] = useState(false);
@@ -60,14 +48,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let cancelled = false;
 
-    async function apply(next: Session | null) {
-      const complete = next ? await readOnboardingComplete(next.user.id) : false;
+    function apply(next: Session | null) {
       if (cancelled) return;
       setSession(next);
-      setOnboardingComplete(complete);
-      // Deliberately cleared only after the profile read. If this flipped as
-      // soon as getSession resolved, a returning onboarded user would render
-      // one frame with onboardingComplete still false and flash the survey.
+      setOnboardingComplete(next ? readOnboardingComplete(next.user.id) : false);
       setLoading(false);
     }
 
@@ -76,7 +60,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     // Synchronous callback on purpose. auth-js marks the async overload
     // deprecated — an async callback can deadlock on a nested token refresh.
     const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => {
-      void apply(next);
+      apply(next);
     });
 
     return () => {
@@ -85,18 +69,21 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const refreshProfile = useCallback(async () => {
-    const { data } = await supabase.auth.getSession();
-    const uid = data.session?.user.id;
-    const complete = uid ? await readOnboardingComplete(uid) : false;
-    setSession(data.session);
-    setOnboardingComplete(complete);
-    return complete;
-  }, []);
+  const userId = session?.user.id;
+
+  const completeOnboarding = useCallback(() => {
+    // Unreachable from the survey, which only mounts behind a session guard.
+    if (!userId) {
+      console.warn('[session] completeOnboarding called while signed out');
+      return;
+    }
+    writeOnboardingComplete(userId, true);
+    setOnboardingComplete(true);
+  }, [userId]);
 
   return (
     <SessionContext.Provider
-      value={{ session, onboardingComplete, loading, refreshProfile }}
+      value={{ session, onboardingComplete, loading, completeOnboarding }}
     >
       {children}
     </SessionContext.Provider>

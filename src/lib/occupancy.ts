@@ -13,8 +13,10 @@
  * would let someone render one.
  */
 
-/** Mirrors the `occupancy_status` enum. Keep in sync with the migration. */
-export type OccupancyStatus = 'empty' | 'some_seats' | 'packed';
+import type { Database } from '@/lib/database.types';
+
+/** The `occupancy_status` enum, derived from the schema rather than copied. */
+export type OccupancyStatus = Database['public']['Enums']['occupancy_status'];
 
 /** A live reading, or `null` for "no recent reports". */
 export type OccupancyReading = {

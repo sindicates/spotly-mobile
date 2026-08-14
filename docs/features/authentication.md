@@ -45,5 +45,5 @@ Magic link only, no passwords.
 
 ### Screens
 
-- `(auth)/sign-in` — email field, "Send me a link." Client validates `.edu` for the error message; server enforces it. Success state explains to check email and return to the app.
-- `(auth)/callback` — deep-link target. Parses tokens, calls `setSession`, then routes on `profiles.onboarding_complete`: false → onboarding, true → home.
+- `(auth)/sign-in` — email field, "Send me a link." Client validates `case.edu` for the error message (per the decision note above — the wireframe's looser `.edu` is superseded); the server enforces it. On send the form is *replaced* by the success state, not annotated: there is nothing left to do here, and a live button only rate-limits the link already sent.
+- `auth/callback` — deep-link target, outside the `(auth)` group so it answers to `/auth/callback` rather than `/callback`. Parses tokens, calls `setSession`, then routes on the device-local onboarding flag ([onboarding.md](onboarding.md)): false → onboarding, true → home. No profile fetch — `setSession` fires `onAuthStateChange` and the provider reads the flag synchronously in that handler.
