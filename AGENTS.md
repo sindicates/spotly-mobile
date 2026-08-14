@@ -1,56 +1,47 @@
-# Expo HAS CHANGED
-
-Read the exact versioned docs at https://docs.expo.dev/versions/v57.0.0/ before writing any code.
-
 # Spotly
 
-**`docs/` is the build authority.** Read the relevant doc before implementing anything — the decisions in it are settled, and most of them have a reason that is not obvious from the code.
+Expo SDK 57 changed a lot. Read the versioned docs at https://docs.expo.dev/versions/v57.0.0/ before writing code.
+
+**`docs/` is the build authority.** Read the relevant doc before implementing — the decisions there are settled, and the reasons usually aren't visible in the code.
 
 | Need | Read |
 | --- | --- |
 | What Spotly is / feature list | [`docs/PRODUCT.md`](docs/PRODUCT.md) |
 | Tech stack | [`docs/TECH_STACK.md`](docs/TECH_STACK.md) |
-| Project folder structure | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) |
-| Competition / write-up | [`docs/PATHFINDERS.md`](docs/PATHFINDERS.md) |
+| Folder structure | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) |
 | A specific feature | [`docs/features/`](docs/features/) |
+| Building any UI | [`docs/DESIGN.md`](docs/DESIGN.md) — and the `spotly-ui` skill |
 
 ## Ground rules
 
-- **Routes live in `src/app/`**, not `app/`. Path alias `@/*` → `src/*`.
-- **Use `npx expo install`**, never bare `npm install`, for anything React-Native-adjacent. It resolves SDK-57-compatible versions.
-- **NativeWind 4 requires Tailwind 3.x.** Installing `tailwindcss@latest` pulls v4 and breaks styling silently — the bundle still builds, the styles just stop applying.
-- **Never give a secret an `EXPO_PUBLIC_` prefix.** That inlines it into the shipped bundle. The anon key is the only key that belongs on the client; the OpenAI key is an Edge Function secret and the service-role key is seed-script-only.
+- Routes live in `src/app/`, not `app/`. Path alias `@/*` → `src/*`.
+- Use `npx expo install`, never bare `npm install`, for anything React-Native-adjacent — it resolves SDK-57-compatible versions.
+- NativeWind 4 requires Tailwind 3.x. `tailwindcss@latest` pulls v4 and styles stop applying silently.
+- Every screen is wireframed in Figma before it is built. Read the frame, then the feature doc its bullets cite. Invoke the `spotly-ui` skill for any UI work — it carries the frame-to-route node map.
+- Style with semantic tokens (`bg-background`, `text-muted-foreground`), never a hex value or a `neutral-*`. Hardcoded colour is a dark-mode bug.
+- Never prefix a secret with `EXPO_PUBLIC_` — that inlines it into the shipped bundle. The anon key is the only key that belongs on the client; the OpenAI key is an Edge Function secret and the service-role key is seed-script-only.
 
-## Invariants that are easy to break
+## Invariants
 
-These are requirements, not preferences. Each has a dedicated feature doc.
+Requirements, not preferences. Breaking one is a bug even if it builds.
 
-- **Account IDs never reach the client.** Read through `public_reviews` / `public_spots` / `spot_occupancy`; write through `security definer` RPCs that set the author from `auth.uid()`. Do not grant clients direct select on `reviews`, `spots`, `check_ins`, or `reports`. ([authentication.md](docs/features/authentication.md), AUTH-4)
-- **Occupancy is never stale.** No recent check-in means "no recent reports" — never a last-known status, never a "last seen N hours ago" badge. ([occupancy.md](docs/features/occupancy.md))
-- **Search returns review cards, one per spot**, ranked by each spot's best-matching review, with an explicit empty state below the similarity threshold. Weak results presented as matches are a bug. ([semantic-search.md](docs/features/semantic-search.md))
-- **Amenity tags are write-once**, set by the first reviewer. There is no tag edit surface. ([amenity-tags.md](docs/features/amenity-tags.md), AMEN-2)
-- **One review per person per spot.** Enforced by a unique constraint; the "add your review" button is how *other* people deepen a spot. ([reviews.md](docs/features/reviews.md), REV-1)
+- **Account IDs never reach the client.** Read through `public_reviews` / `public_spots` / `spot_occupancy`; write through `security definer` RPCs that set the author from `auth.uid()`. Clients get no direct select on `reviews`, `spots`, `check_ins`, `reports`. ([authentication.md](docs/features/authentication.md))
+- **Occupancy is never stale.** No recent check-in means "no recent reports" — never a last-known status or "last seen N hours ago". ([occupancy.md](docs/features/occupancy.md))
+- **Search returns one review card per spot**, ranked by that spot's best-matching review, with an explicit empty state below the similarity threshold. ([semantic-search.md](docs/features/semantic-search.md))
+- **Amenity tags are write-once**, set by the first reviewer. No tag edit surface. ([amenity-tags.md](docs/features/amenity-tags.md))
+- **One review per person per spot**, enforced by a unique constraint. ([reviews.md](docs/features/reviews.md))
 
-Older notes that disagree: study-only with no category browse (SPOT-1), search returns review cards not spot summaries (SEARCH-2), no ratings anywhere (REV-7), tags locked after the first reviewer (AMEN-2), one review unlocks onboarding (ONB-3/5). The feature docs are the current truth.
+## Keep docs current
 
-## Build order
+`docs/` is the spec, not a changelog. Update it in the same change as the decision, not after the code has drifted.
 
-1. Dev build on a physical device, magic link working end to end.
-2. Schema, RLS, views, triggers, RPCs — one migration.
-3. Seed buildings and the seed-account pool.
-4. `embed` and `search` edge functions.
-5. Seed pipeline, 20–30 spots. Demo-able here.
-6. Auth, onboarding, review form.
-7. Home, search results, spot detail.
-8. Occupancy check-in.
-9. Favourites, report flow, content policy screen.
-10. Recalibrate minimum similarity against seeded data.
-11. Freeze. Empty states, device testing, demo video.
+| You changed… | Update |
+| --- | --- |
+| A product decision / requirement | The feature doc (and `PRODUCT.md` if the feature list changed) |
+| Routes, folders, files that were `*intended*` | `docs/ARCHITECTURE.md` |
+| Stack, env vars, setup/run commands | `README.md` and `docs/TECH_STACK.md` |
+| Design tokens, shared components, UI patterns | `docs/DESIGN.md` (and the Figma wireframe, if a screen changed) |
+| An invariant or ground rule | `AGENTS.md` |
 
-**If time runs short, cut in this order:** favourites, then the trending feed on home, then the survey. **Never cut:** occupancy, the moderation path, or honest empty states.
+Do not rewrite a feature doc to match code. If they disagree, fix the code or explicitly record the decision change (strike-through + date, like REV-7).
 
-## Verify before claiming done
-
-```bash
-npm run typecheck && npm run doctor
-```

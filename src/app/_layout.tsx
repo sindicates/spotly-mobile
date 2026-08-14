@@ -1,8 +1,12 @@
-import { Stack } from 'expo-router';
+import { PortalHost } from '@rn-primitives/portal';
+import { Stack, ThemeProvider } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
+import { useColorScheme } from 'nativewind';
 import { useEffect } from 'react';
 
 import { SessionProvider, useSession } from '@/lib/session';
+import { NAV_THEME } from '@/lib/theme';
 
 import '../global.css';
 
@@ -10,11 +14,31 @@ import '../global.css';
 // the splash has already auto-hidden by then.
 void SplashScreen.preventAutoHideAsync();
 
+/**
+ * Root layout. Jobs, in order:
+ *
+ * 1. Load the stylesheet. The `global.css` import is what registers every design
+ *    token with NativeWind — without it, class names resolve to nothing.
+ * 2. Hand the palette to React Navigation, so headers and card backgrounds match
+ *    the app surface instead of defaulting to system white.
+ * 3. Gate the three route groups on session + onboarding.
+ * 4. Mount the `PortalHost`. React Native has no DOM portals, so every overlay
+ *    component (Dialog, Select, AlertDialog) renders into this host rather than
+ *    in place. It must be the LAST child of the providers, or overlays paint
+ *    underneath the screen they were opened from.
+ */
 export default function RootLayout() {
+  const { colorScheme } = useColorScheme();
+  const scheme = colorScheme ?? 'light';
+
   return (
-    <SessionProvider>
-      <RootNavigator />
-    </SessionProvider>
+    <ThemeProvider value={NAV_THEME[scheme]}>
+      <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />
+      <SessionProvider>
+        <RootNavigator />
+      </SessionProvider>
+      <PortalHost />
+    </ThemeProvider>
   );
 }
 

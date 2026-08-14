@@ -1,3 +1,101 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/**
+ * Spotly design tokens.
+ *
+ * Every colour in the app comes from this file. Components reference the
+ * semantic name (`bg-card`, `text-muted-foreground`) and never a raw palette
+ * value, so retheming is a change here and nowhere else.
+ *
+ * Values are bare HSL channels — `209 87% 53%`, not `hsl(209 87% 53%)` — because
+ * tailwind.config.js wraps them in `hsl(var(--x))`. That indirection is what
+ * lets `bg-primary/90` work: Tailwind can only inject an alpha channel if it
+ * owns the colour function.
+ *
+ * Dark mode uses `.dark:root`, not `.dark`. NativeWind requires the `:root`
+ * suffix; the plain shadcn/ui selector silently fails to apply on native.
+ *
+ * If you edit anything here, mirror it into src/lib/theme.ts — that file is the
+ * same palette in TypeScript, for navigation chrome and animated styles that
+ * cannot read a class name.
+ */
+
+@layer base {
+  :root {
+    /* Surfaces */
+    --background: 0 0% 100%;
+    --foreground: 222 24% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 24% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 24% 11%;
+
+    /* Brand — matches the splash screen blue in app.json (#208AEF) */
+    --primary: 209 87% 53%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222 24% 16%;
+    --muted: 210 33% 96%;
+    --muted-foreground: 215 16% 45%;
+    --accent: 205 91% 95%;
+    --accent-foreground: 209 87% 30%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    /* Lines and focus */
+    --border: 214 24% 90%;
+    --input: 214 24% 90%;
+    --ring: 209 87% 53%;
+    --radius: 0.75rem;
+
+    /**
+     * Occupancy — the one place Spotly uses colour to carry meaning.
+     *
+     * There are three reported states and a fourth, load-bearing non-state:
+     * no recent report. That fourth case deliberately has NO colour of its own.
+     * It renders in muted grey, because a stale or unknown status dressed up in
+     * a status colour is the failure OCC-4 exists to prevent.
+     * See docs/features/occupancy.md.
+     */
+    --occupancy-empty: 152 58% 34%;
+    --occupancy-empty-surface: 150 52% 94%;
+    --occupancy-some: 32 90% 40%;
+    --occupancy-some-surface: 42 94% 92%;
+    --occupancy-packed: 0 72% 48%;
+    --occupancy-packed-surface: 0 86% 96%;
+  }
+
+  .dark:root {
+    --background: 222 24% 7%;
+    --foreground: 210 20% 96%;
+    --card: 222 22% 10%;
+    --card-foreground: 210 20% 96%;
+    --popover: 222 22% 10%;
+    --popover-foreground: 210 20% 96%;
+
+    --primary: 209 90% 61%;
+    --primary-foreground: 222 40% 10%;
+    --secondary: 217 19% 17%;
+    --secondary-foreground: 210 20% 96%;
+    --muted: 217 19% 17%;
+    --muted-foreground: 215 15% 65%;
+    --accent: 209 44% 20%;
+    --accent-foreground: 205 90% 88%;
+    --destructive: 0 62% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 217 17% 22%;
+    --input: 217 17% 24%;
+    --ring: 209 90% 61%;
+    --radius: 0.75rem;
+
+    --occupancy-empty: 152 52% 56%;
+    --occupancy-empty-surface: 152 34% 15%;
+    --occupancy-some: 38 88% 60%;
+    --occupancy-some-surface: 36 40% 16%;
+    --occupancy-packed: 0 70% 63%;
+    --occupancy-packed-surface: 0 38% 17%;
+  }
+}
