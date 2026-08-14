@@ -74,6 +74,74 @@ After writing a migration: apply it locally, regenerate types, then `npx supabas
 
 Seed data is local only — `db push` applies migrations, not `seed.sql`.
 
+### Calling authenticated endpoints locally
+
+Most of the API is revoked from `anon` — the write RPCs, `search_reviews`, and the
+`public_*` views all need an `authenticated` JWT. To get one without going through
+the magic-link flow:
+
+```bash
+npm run dev:token     # prints a 12h token for the first seed user
+```
+
+Pass a uuid and email to impersonate a different seed user. This works because local
+Supabase signs with the published demo `JWT_SECRET`; it has no hosted equivalent, and
+the token is worthless anywhere but `127.0.0.1`.
+
+```bash
+curl "$SUPABASE_URL/rest/v1/public_reviews?select=id,is_mine&limit=3" -H "apikey: $ANON_KEY" -H "Authorization: Bearer $(npm run -s dev:token)"
+```
+
+This token is for `curl` only — it **cannot** sign the app in. `setSession` needs a
+refresh token, and only GoTrue issues those. To sign in on the booted simulator:
+
+```bash
+npm run dev:signin              # first seed user; pass an email for another
+```
+
+That runs the real magic-link flow (request → read from Mailpit → exchange) and
+fires the resulting `spotly://auth/callback` deep link at the simulator, so the
+app's own callback route handles it. By hand: the simulator shares the Mac's
+network, so you can open Mailpit at http://127.0.0.1:54334 in simulator Safari
+and tap the link.
+
+## Edge Functions
+
+`supabase/functions/` is the only code allowed to hold `OPENAI_API_KEY`. `embed`
+turns text into a `vector(1536)`; `_shared/embedding.ts` owns the model and
+dimension count so `search` cannot drift off them later.
+
+```bash
+npm run functions:serve    # serves every function against the local stack
+```
+
+That passes `--env-file .env`, which is where `OPENAI_API_KEY` lives locally. It
+takes no function name — `supabase functions serve embed` is rejected as an
+unexpected argument. Hot reload is on, so edits apply without a restart.
+
+```bash
+curl -X POST "http://127.0.0.1:54331/functions/v1/embed" \
+  -H "Authorization: Bearer $(npm run -s dev:token)" \
+  -H "Content-Type: application/json" \
+  -d '{"input":"quiet corner with outlets"}'
+```
+
+`verify_jwt` only proves the caller holds a JWT this project signed — the anon key
+qualifies — so each function also resolves the token to a real user before
+spending an OpenAI call. The test that proves the guard is a request bearing the
+**anon key alone**: it must answer 401, not an embedding.
+
+Deployed functions do not read `.env`:
+
+```bash
+npx supabase secrets set OPENAI_API_KEY=sk-...
+npx supabase functions deploy embed
+```
+
+This folder is Deno, so it sits outside the app's TypeScript setup — see
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for why `tsconfig` excludes it and
+what your editor needs.
+
 ## Docs
 
 | Need | Read |
