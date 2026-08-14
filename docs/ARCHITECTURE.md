@@ -11,12 +11,15 @@ spotly-mobile/
 │   │   ├── (auth)/          *intended* — sign-in + magic-link callback
 │   │   ├── (onboarding)/    *intended* — survey + first review
 │   │   └── (app)/           *intended* — home, search, spots, reviews, favorites
-│   ├── components/          *intended* — shared UI (cards, pills, sheets)
-│   └── lib/                 clients and helpers (Supabase, etc.)
+│   ├── components/          shared UI — pills, chips, cards, empty states
+│   │   └── ui/              React Native Reusables primitives (vendored, editable)
+│   ├── lib/                 clients and helpers (Supabase, theme, domain types)
+│   └── global.css           design tokens — the source of every colour
 ├── supabase/
 │   ├── migrations/          schema, views, RPCs, RLS
 │   └── functions/           *intended* — embed/ and search/ Edge Functions
 ├── docs/
+│   ├── DESIGN.md            the design system — tokens, type, components, patterns
 │   └── features/            one file per product feature
 ├── assets/                  icons, splash, static images
 └── README.md
@@ -28,9 +31,9 @@ spotly-mobile/
 
 **`src/app/`** — one file per screen, nothing else. File-based routing. The three groups are the session gate: no session → `(auth)`, signed in but not onboarded → `(onboarding)`, otherwise `(app)`. The root `_layout` picks the group; it does not live in RLS.
 
-**`src/components/`** — UI used on more than one screen. Review cards, occupancy pills, amenity chips, the report sheet. If it is a route, it does not belong here.
+**`src/components/`** — UI used on more than one screen. Review cards, occupancy pills, amenity chips, the report sheet. If it is a route, it does not belong here. `ui/` beneath it holds the React Native Reusables primitives, vendored as source rather than installed as a dependency — edit them for the whole app, never for one screen. See [`DESIGN.md`](DESIGN.md).
 
-**`src/lib/`** — non-UI code the app imports: the Supabase client, API wrappers around RPCs and Edge Functions, small shared helpers. No React components.
+**`src/lib/`** — non-UI code the app imports: the Supabase client, API wrappers around RPCs and Edge Functions, the theme mirror, domain types and constants that mirror database enums. No React components.
 
 **`supabase/migrations/`** — the database. Tables, views (`public_reviews`, `public_spots`, `spot_occupancy`), definer RPCs, triggers, RLS. Clients never select `reviews`, `spots`, `check_ins`, or `reports` directly.
 

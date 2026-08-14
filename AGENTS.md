@@ -10,12 +10,15 @@ Expo SDK 57 changed a lot. Read the versioned docs at https://docs.expo.dev/vers
 | Tech stack | [`docs/TECH_STACK.md`](docs/TECH_STACK.md) |
 | Folder structure | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) |
 | A specific feature | [`docs/features/`](docs/features/) |
+| Building any UI | [`docs/DESIGN.md`](docs/DESIGN.md) — and the `spotly-ui` skill |
 
 ## Ground rules
 
 - Routes live in `src/app/`, not `app/`. Path alias `@/*` → `src/*`.
 - Use `npx expo install`, never bare `npm install`, for anything React-Native-adjacent — it resolves SDK-57-compatible versions.
 - NativeWind 4 requires Tailwind 3.x. `tailwindcss@latest` pulls v4 and styles stop applying silently.
+- Every screen is wireframed in Figma before it is built. Read the frame, then the feature doc its bullets cite. Invoke the `spotly-ui` skill for any UI work — it carries the frame-to-route node map.
+- Style with semantic tokens (`bg-background`, `text-muted-foreground`), never a hex value or a `neutral-*`. Hardcoded colour is a dark-mode bug.
 - Never prefix a secret with `EXPO_PUBLIC_` — that inlines it into the shipped bundle. The anon key is the only key that belongs on the client; the OpenAI key is an Edge Function secret and the service-role key is seed-script-only.
 
 ## Invariants
@@ -37,6 +40,7 @@ Requirements, not preferences. Breaking one is a bug even if it builds.
 | A product decision / requirement | The feature doc (and `PRODUCT.md` if the feature list changed) |
 | Routes, folders, files that were `*intended*` | `docs/ARCHITECTURE.md` |
 | Stack, env vars, setup/run commands | `README.md` and `docs/TECH_STACK.md` |
+| Design tokens, shared components, UI patterns | `docs/DESIGN.md` (and the Figma wireframe, if a screen changed) |
 | An invariant or ground rule | `AGENTS.md` |
 
 Do not rewrite a feature doc to match code. If they disagree, fix the code or explicitly record the decision change (strike-through + date, like REV-7).
