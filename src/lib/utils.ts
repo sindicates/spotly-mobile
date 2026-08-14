@@ -12,3 +12,20 @@ import { twMerge } from 'tailwind-merge';
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
+
+/**
+ * The message to show a user for a thrown value.
+ *
+ * Screens render the server's wording rather than a local paraphrase — the
+ * `.edu` gate, the word floor, and the check-in rate limit are all enforced in
+ * the database, so when the client and the server disagree the server is right
+ * and its message is the one that explains why (DESIGN.md → Forms).
+ *
+ * The fallback covers the genuinely unknown: a network drop, or a rejection that
+ * is not an `Error` at all.
+ */
+export function errorMessage(error: unknown, fallback = 'Something went wrong.'): string {
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === 'string' && error) return error;
+  return fallback;
+}

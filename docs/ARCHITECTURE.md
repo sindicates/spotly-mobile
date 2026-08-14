@@ -13,7 +13,7 @@ spotly-mobile/
 │   │   │   └── sign-in.tsx
 │   │   ├── auth/                 NOT a group — see note below
 │   │   │   └── callback.tsx
-│   │   ├── (onboarding)/         *intended*
+│   │   ├── (onboarding)/
 │   │   │   ├── survey.tsx
 │   │   │   └── first-review.tsx
 │   │   └── (app)/                *intended*
@@ -27,14 +27,26 @@ spotly-mobile/
 │   │           └── new.tsx
 │   ├── components/               shared UI — pills, chips, cards, empty states
 │   │   └── ui/                   React Native Reusables primitives (vendored, editable)
+│   ├── hooks/                    data-fetching hooks — one per read path
+│   │   ├── use-async.ts          the shared read primitive
+│   │   ├── use-buildings.ts      building picker
+│   │   └── use-spots-in-building.ts   add-spot duplicate guard
 │   ├── lib/
-│   │   ├── supabase.ts
+│   │   ├── supabase.ts           client, plus RequestError / unwrap
+│   │   ├── database.types.ts     GENERATED — `npm run gen:types`, never hand-edit
 │   │   ├── session.tsx           SessionProvider / useSession
+│   │   ├── storage.ts            MMKV — device-local state (the onboarding flag)
 │   │   ├── auth-url.ts           magic-link fragment parser
+│   │   ├── onboarding.ts         survey questions, first-review prompt
+│   │   ├── spots.ts              buildings / public_spots reads, add-spot write
+│   │   ├── reviews.ts            word floor, prompt, embed + review writes
+│   │   ├── amenities.ts          the eight tags
+│   │   ├── occupancy.ts          occupancy states and copy
 │   │   └── theme.ts              design-token mirror for navigation chrome
 │   └── global.css                design tokens — the source of every colour
 ├── supabase/
 │   ├── migrations/          schema, views, RPCs, RLS
+│   ├── seed.sql             local fake data — runs on `supabase db reset`
 │   └── functions/           *intended* — embed/ and search/ Edge Functions
 ├── docs/
 │   ├── DESIGN.md            the design system — tokens, type, components, patterns
@@ -59,9 +71,23 @@ never leaves the app; the callback's does, so its path has to be literal.
 
 **`src/components/`** — UI used on more than one screen. Review cards, occupancy pills, amenity chips, the report sheet. If it is a route, it does not belong here. `ui/` beneath it holds the React Native Reusables primitives, vendored as source rather than installed as a dependency — edit them for the whole app, never for one screen. See [`DESIGN.md`](DESIGN.md).
 
-**`src/lib/`** — non-UI code the app imports: the Supabase client, session provider, API wrappers around RPCs and Edge Functions, the theme mirror, domain types and constants that mirror database enums. No React components.
+**`src/lib/`** — non-UI code the app imports: the Supabase client, session provider, device-local storage, API wrappers around RPCs and Edge Functions, the theme mirror, domain types and constants that mirror database enums. No React components, no hooks.
+
+Organised **by domain, not by kind** — `occupancy.ts` holds the occupancy type, its constants, and its helpers together, rather than scattering them across `types/`, `constants/`, and `services/`. This is load-bearing rather than stylistic: the comment explaining why `OccupancyReading` carries no `lastKnownStatus` sits directly above the type it constrains, and OCC-4 survives contact with the next person to edit that file only because the two cannot be read apart. The same applies to AMEN-2 in `amenities.ts`. A file per feature also maps 1:1 onto [`features/`](features/).
+
+**`src/lib/database.types.ts` is generated — never hand-edit it.** `npm run gen:types` rewrites it from the linked project's live schema. It is what `createClient<Database>` is parameterised by, so every table name, selected column, and RPC argument is checked against the real schema: a migration that renames a column fails `npm run typecheck` instead of returning `undefined` at runtime. Domain types derive from it (`AmenityTag` is `Database['public']['Enums']['amenity_tag']`), which is what stops the hand-copied enum mirrors from drifting. Regenerate in the same change as any migration.
+
+Note that view rows come back with every column nullable — Postgres cannot prove non-null through a view, so the generator assumes the worst. Narrow at the boundary and say why, as `PublicSpot` does; do not push the nullability into screens that would then render a defensive fallback for a column that is `not null` in the table.
+
+**`src/hooks/`** — React hooks that wrap a `lib/` read for a screen. One file per read path, named `use-<thing>.ts`, all built on `useAsync`. Writes do not belong here: a write's result belongs to the screen that fired it and its errors render inline, so screens call the `lib/` function directly from the submit handler.
+
+`useAsync` is a deliberate minimum, not a cache — no dedupe, no background refetch, no store shared between components. It exists to get request supersession right, which is the bug hand-rolled fetching always has. When two screens need the same data at once, adopt React Query rather than growing it.
+
+**`src/lib/storage.ts` is for per-install state only.** Right now that is one value: the onboarding flag, keyed by account id ([onboarding.md](features/onboarding.md)). Anything a second device or the server has to agree on goes in Postgres. Reaching for MMKV to avoid writing a migration is how the two drift.
 
 **`supabase/migrations/`** — the database. Tables, views (`public_reviews`, `public_spots`, `spot_occupancy`), definer RPCs, triggers, RLS. Clients never select `reviews`, `spots`, `check_ins`, or `reports` directly.
+
+**`supabase/seed.sql`** — local fake data, applied automatically by `supabase db reset`. Buildings, spots, reviews, check-ins, favourites, one open report. It leaves `reviews.embedding` null on purpose: a fabricated vector ranks as a real match and makes the `min_similarity` threshold impossible to calibrate. Seeded reviews are invisible to search until something backfills real embeddings.
 
 **`supabase/functions/`** — Deno Edge Functions. `embed` turns review text into a vector; `search` embeds a query and returns cards. They are the only place the OpenAI key is allowed. Share one embedding helper so the two cannot drift.
 
