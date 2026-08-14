@@ -21,10 +21,24 @@ if (!supabaseUrl || !supabaseAnonKey) {
  * Only the anon key belongs here. The OpenAI key lives in Edge Function secrets
  * and the service-role key is seed-script-only — neither may ever be given an
  * EXPO_PUBLIC_ prefix, which would inline it into the shipped bundle.
+ *
+ * `expo-router`'s web build prerenders routes in Node before the browser takes
+ * over. AsyncStorage's web implementation reads `window.localStorage`, which
+ * doesn't exist during that Node pass, so the client falls back to a no-op
+ * storage there and only touches AsyncStorage once actually running in a browser.
  */
+const storage =
+  typeof window === 'undefined'
+    ? {
+        getItem: async () => null,
+        setItem: async () => {},
+        removeItem: async () => {},
+      }
+    : AsyncStorage;
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    storage: AsyncStorage,
+    storage,
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,

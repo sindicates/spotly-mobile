@@ -44,7 +44,7 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
-    "doctor": "expo-doctor"
+    "doctor": "npx --yes expo-doctor"
   },
   "private": true
 }
