@@ -13,27 +13,26 @@
  * act with a result the user is waiting on, so it re-runs immediately — and a
  * filter row that needs a second confirming tap reads as broken (AMEN-3).
  *
- * An empty query resolves to `[]` from the fetcher rather than short-circuiting
- * the hook, following `use-spots-in-building.ts`: hooks cannot be called
- * conditionally, and returning a hand-built state object would drift from
- * `AsyncState`'s semantics the first time one of them changes.
+ * An empty query is the idle state, not a search for nothing: the key is blank,
+ * nothing is fetched, and `data` stays null. The screen reads that as "no search
+ * yet" and shows the prompt rather than an empty-results state.
  */
 
 import { useAsync, type AsyncState } from '@/hooks/use-async';
 import type { AmenityTag } from '@/lib/amenities';
-import { searchReviews, type SearchResult } from '@/lib/search';
+import type { SpotReviewCard } from '@/lib/reviews';
+import { searchReviews } from '@/lib/search';
 
 export function useSearch(
   query: string,
   tags: readonly AmenityTag[]
-): AsyncState<SearchResult[]> {
+): AsyncState<SpotReviewCard[]> {
   const trimmed = query.trim();
-  // Sorted so that selecting [quiet, outlets] and [outlets, quiet] are one key
-  // and not two identical requests.
-  const tagKey = [...tags].sort().join(',');
-
+  // Tags are order-independent, so sort them into the key — {outlets,quiet} and
+  // {quiet,outlets} are the same search and must not refetch.
+  const key = trimmed ? `search:${trimmed}::${[...tags].sort().join(',')}` : '';
   return useAsync(
-    async () => (trimmed ? searchReviews(trimmed, tags) : []),
-    `search:${trimmed}:${tagKey}`
+    () => (trimmed ? searchReviews(trimmed, tags) : Promise.resolve([])),
+    key
   );
 }

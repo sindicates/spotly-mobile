@@ -21,6 +21,7 @@ Use `npx expo install` for anything React-Native-adjacent, never bare `npm insta
 | Session | `@supabase/supabase-js` + AsyncStorage. `detectSessionInUrl: false` — the web default breaks native. |
 | Local state | `react-native-mmkv` v4 (JSI/Nitro, synchronous). Per-install state only — currently just the onboarding flag. |
 | Location | `expo-location`, foreground only. Unused in v1 UI; wired so the dev build is proven. |
+| Haptics | `expo-haptics`. Screens call `src/lib/haptics.ts`; they never import the package. Web is a no-op. |
 | Build | EAS Build → custom development build. Internal distribution + TestFlight. |
 
 ---
@@ -40,6 +41,8 @@ Use `npx expo install` for anything React-Native-adjacent, never bare `npm insta
 MMKV v4 is Nitro-based: it needs `react-native-nitro-modules` (a peer dependency, pinned explicitly rather than left to npm's auto-peer-install) and a native rebuild. `new MMKV()` is gone in v4 — use the `createMMKV()` factory; `MMKV` is now a type-only export. On web the package resolves a `localStorage` implementation through platform extensions, but it throws during expo-router's Node prerender pass, so `storage.ts` falls back to an in-memory store when `window` is undefined. Same guard as `supabase.ts`, same reason.
 
 **Location.** `NSLocationWhenInUseUsageDescription` / Android fine+coarse are declared. v1 check-ins are trust-based (OCC-5) — the permission is in the binary so a later geo gate does not require a new native build. Do not show a location prompt until a screen actually needs the fix.
+
+**Haptics.** `expo-haptics` talks to the Taptic Engine on iOS and the vibrator on Android. Android `VIBRATE` is added by the package. Intensity and when-to-fire live in `src/lib/haptics.ts` so a screen cannot pick a heavier impact than another. The helpers no-op on web (and therefore during Node prerender) and swallow failures — Low Power Mode and a user-disabled Taptic Engine must not break a press handler. There is no in-app toggle; the OS setting is enough.
 
 **Orientation.** Portrait, iPhone only (`supportsTablet: false`).
 

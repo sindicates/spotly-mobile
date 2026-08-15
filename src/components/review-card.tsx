@@ -1,5 +1,5 @@
 import { FlagIcon } from 'lucide-react-native';
-import { Pressable, View } from 'react-native';
+import { Pressable, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { AmenityChips } from '@/components/amenity-chip';
 import { OccupancyPill } from '@/components/occupancy-pill';
@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import type { AmenityTag } from '@/lib/amenities';
+import { selection } from '@/lib/haptics';
 import type { OccupancyReading } from '@/lib/occupancy';
 import { cn } from '@/lib/utils';
 
@@ -38,6 +39,13 @@ type ReviewCardProps = {
   tags?: readonly AmenityTag[];
   /** Shown as "4 reviews" when this card represents a spot in a list. */
   reviewCount?: number;
+  /**
+   * Set false inside the spot page carousel, where the header two lines above
+   * already names the spot and shows its pill. Repeating it on every card is
+   * noise, and the alternative — a second review surface built just for that
+   * screen — is how a card without REV-2's guarantees gets written.
+   */
+  showSpotContext?: boolean;
   expanded?: boolean;
   /** Tap-to-expand. Debounce `increment_expand` to once per review per session. */
   onToggleExpand?: () => void;
@@ -46,6 +54,12 @@ type ReviewCardProps = {
   /** Opens the report sheet. Present on every review card (MOD-1). */
   onReport?: () => void;
   className?: string;
+  /**
+   * Escape hatch for a measured width, which the carousel computes from the
+   * window rather than a class. Layout only — colour and spacing stay in
+   * `className` so they keep resolving from tokens.
+   */
+  style?: StyleProp<ViewStyle>;
 };
 
 export function ReviewCard({
@@ -55,16 +69,24 @@ export function ReviewCard({
   occupancy,
   tags = [],
   reviewCount,
+  showSpotContext = true,
   expanded = false,
   onToggleExpand,
   onOpenSpot,
   onReport,
   className,
+  style,
 }: ReviewCardProps) {
   return (
-    <View className={cn('border-border bg-card gap-3 rounded-lg border p-4', className)}>
+    <View
+      style={style}
+      className={cn('border-border bg-card gap-3 rounded-lg border p-4', className)}>
       <Pressable
-        onPress={onToggleExpand}
+        onPress={() => {
+          if (!onToggleExpand) return;
+          selection();
+          onToggleExpand();
+        }}
         accessibilityRole="button"
         accessibilityLabel={expanded ? 'Collapse review' : 'Expand review'}>
         <Text
@@ -74,22 +96,24 @@ export function ReviewCard({
         </Text>
       </Pressable>
 
-      <View className="gap-2">
-        <View className="flex-row items-center justify-between gap-3">
-          <View className="shrink gap-0.5">
-            <Text className="font-semibold">{areaName}</Text>
-            <Text variant="muted">
-              {building}
-              {typeof reviewCount === 'number'
-                ? ` · ${reviewCount} ${reviewCount === 1 ? 'review' : 'reviews'}`
-                : ''}
-            </Text>
+      {showSpotContext ? (
+        <View className="gap-2">
+          <View className="flex-row items-center justify-between gap-3">
+            <View className="shrink gap-0.5">
+              <Text className="font-semibold">{areaName}</Text>
+              <Text variant="muted">
+                {building}
+                {typeof reviewCount === 'number'
+                  ? ` · ${reviewCount} ${reviewCount === 1 ? 'review' : 'reviews'}`
+                  : ''}
+              </Text>
+            </View>
+            <OccupancyPill reading={occupancy} size="sm" />
           </View>
-          <OccupancyPill reading={occupancy} size="sm" />
-        </View>
 
-        {tags.length > 0 ? <AmenityChips tags={tags} /> : null}
-      </View>
+          {tags.length > 0 ? <AmenityChips tags={tags} /> : null}
+        </View>
+      ) : null}
 
       {onOpenSpot || onReport ? (
         <View className="flex-row items-center justify-between">

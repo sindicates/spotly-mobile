@@ -2,7 +2,7 @@
 
 Routes live in `src/app/`, not `app/`. Path alias `@/*` → `src/*`.
 
-Folders and files marked *intended* are specified but not created yet. Screen detail lives with the [feature that owns it](features/). The report sheet is a modal, not a route.
+Folders marked *intended* are specified but not created yet. Screen detail lives with the [feature that owns it](features/). The report sheet is a modal, not a route.
 
 ```
 spotly-mobile/
@@ -17,33 +17,43 @@ spotly-mobile/
 │   │   │   ├── survey.tsx
 │   │   │   └── first-review.tsx
 │   │   └── (app)/
-│   │       ├── index.tsx         home — search-first shell
-│   │       ├── search.tsx        semantic search results
-│   │       ├── favorites.tsx     *intended*
+│   │       ├── (tabs)/           the native tab bar — the app's three destinations
+│   │       │   ├── _layout.tsx   NativeTabs, themed from lib/theme.ts
+│   │       │   ├── index.tsx     home — search-first, trending feed
+│   │       │   ├── search.tsx    results + SEARCH-4 empty state
+│   │       │   └── favorites.tsx
+│   │       ├── content-policy.tsx   MOD-3, linked from the review forms + report sheet
 │   │       ├── review/
-│   │       │   └── new.tsx       *intended*
+│   │       │   └── new.tsx
 │   │       └── spot/
-│   │           ├── [id].tsx      *intended*
-│   │           └── new.tsx       *intended*
+│   │           ├── [id].tsx
+│   │           └── new.tsx
 │   ├── components/               shared UI — pills, chips, cards, empty states
 │   │   └── ui/                   React Native Reusables primitives (vendored, editable)
 │   ├── hooks/                    data-fetching hooks — one per read path
 │   │   ├── use-async.ts          the shared read primitive
 │   │   ├── use-buildings.ts      building picker
-│   │   ├── use-search.ts         search results — submitted query, not keystrokes
-│   │   └── use-spots-in-building.ts   add-spot duplicate guard
+│   │   ├── use-spots-in-building.ts   add-spot duplicate guard
+│   │   ├── use-trending-feed.ts  home feed (SPOT-1)
+│   │   ├── use-search.ts         semantic search results, keyed on query + tags
+│   │   ├── use-spot-detail.ts    spot page — spot, reviews, occupancy, favourite
+│   │   ├── use-favorites.ts      saved-spot list
+│   │   └── use-review-interactions.ts   expand + increment_expand + report-sheet state
 │   ├── lib/
-│   │   ├── supabase.ts           client, plus RequestError / unwrap / functionErrorMessage
+│   │   ├── supabase.ts           client, RequestError / unwrap, functionErrorMessage
 │   │   ├── database.types.ts     GENERATED — `npm run gen:types`, never hand-edit
 │   │   ├── session.tsx           SessionProvider / useSession
 │   │   ├── storage.ts            MMKV — device-local state (the onboarding flag)
 │   │   ├── auth-url.ts           magic-link fragment parser
+│   │   ├── haptics.ts            semantic haptic helpers (press/selection/success/…)
 │   │   ├── onboarding.ts         survey questions, first-review prompt
 │   │   ├── spots.ts              buildings / public_spots reads, add-spot write
-│   │   ├── reviews.ts            word floor, prompt, embed + review writes
-│   │   ├── search.ts             the search Edge Function call, wire → domain
+│   │   ├── reviews.ts            word floor, prompt, embed, review writes, feed reads
+│   │   ├── search.ts             calls the search Edge Function → review cards
+│   │   ├── favorites.ts          save / unsave + saved-spot reads (direct table, FAV-3)
+│   │   ├── reporting.ts          report_review write (MOD-1)
 │   │   ├── amenities.ts          the eight tags
-│   │   ├── occupancy.ts          occupancy states and copy
+│   │   ├── occupancy.ts          occupancy states, copy, check-in write, freshness
 │   │   └── theme.ts              design-token mirror for navigation chrome
 │   └── global.css                design tokens — the source of every colour
 ├── supabase/
@@ -52,7 +62,7 @@ spotly-mobile/
 │   └── functions/           Deno Edge Functions
 │       ├── _shared/         embedding helper, auth guard, CORS — shared, never deployed
 │       ├── embed/           text → vector(1536)
-│       └── search/          embeds a query, returns cards
+│       └── search/          embeds a query, calls search_reviews, returns cards
 ├── docs/
 │   ├── DESIGN.md            the design system — tokens, type, components, patterns
 │   └── features/            one file per product feature
@@ -73,6 +83,10 @@ never leaves the app; the callback's does, so its path has to be literal.
 ## What goes where
 
 **`src/app/`** — one file per screen, nothing else. File-based routing. The three groups are the session gate: no session → `(auth)`, signed in but not onboarded → `(onboarding)`, otherwise `(app)`. The root `_layout` picks the group; it does not live in RLS.
+
+**`(app)/(tabs)/` is destinations; everything beside it is pushed over them.** The tab bar is the real platform one ([`NativeTabs`](https://docs.expo.dev/router/advanced/native-tabs/), alpha in SDK 57, hence the `unstable-native-tabs` import), and it holds the three places you can *be*: home, search, favourites. Spot detail, the two forms, and the content policy stay siblings of the group in the root stack, so they push over the whole navigator with a back button rather than into one tab's history — the spot page is reached from all three tabs and belongs to none of them. Adding a spot is an action, not a place, so it has no tab.
+
+Group segments are stripped from URLs, so `/`, `/search`, and `/favorites` are unchanged by the move. What did change is lifetime: a tab screen mounts once and survives every visit, where a pushed screen remounted per visit. State seeded from params at mount is therefore only correct the first time — see the hand-off marker in `search.tsx`. Navigate between tabs with `router.navigate`, not `router.push`.
 
 **`src/components/`** — UI used on more than one screen. Review cards, occupancy pills, amenity chips, the report sheet. If it is a route, it does not belong here. `ui/` beneath it holds the React Native Reusables primitives, vendored as source rather than installed as a dependency — edit them for the whole app, never for one screen. See [`DESIGN.md`](DESIGN.md).
 

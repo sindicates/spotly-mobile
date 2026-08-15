@@ -1,5 +1,6 @@
 import { Icon } from '@/components/ui/icon';
 import { TextClassContext } from '@/components/ui/text';
+import { selection } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
 import * as TogglePrimitive from '@rn-primitives/toggle';
 import { cva, type VariantProps } from 'class-variance-authority';
@@ -41,6 +42,7 @@ function Toggle({
   className,
   variant,
   size,
+  onPressedChange,
   ...props
 }: React.ComponentProps<typeof TogglePrimitive.Root> & VariantProps<typeof toggleVariants>) {
   return (
@@ -59,6 +61,10 @@ function Toggle({
           props.pressed && 'bg-accent',
           className
         )}
+        onPressedChange={(pressed) => {
+          selection();
+          onPressedChange?.(pressed);
+        }}
         {...props}
       />
     </TextClassContext.Provider>

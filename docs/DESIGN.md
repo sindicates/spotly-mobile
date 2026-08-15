@@ -119,10 +119,11 @@ Add one only when a screen needs it:
 npx @react-native-reusables/cli@latest add <name> -y --styling-library nativewind
 ```
 
-Two with sharp edges:
+Three with sharp edges:
 
 - **`Icon`** — always `<Icon as={FlagIcon} size={16} className="text-muted-foreground" />`. The wrapper applies `cssInterop` so `className` reaches the SVG; a raw Lucide import ignores every class you give it.
 - **`Dialog`** — renders through the `PortalHost` in the root layout. React Native has no DOM portals. If an overlay appears behind the screen that opened it, the host is missing or is not the last child of the providers.
+- **`Button`** — fires `press()` on `onPressIn` unless `haptic={false}`. Use the opt-out only when the same gesture will immediately fire a stronger outcome haptic (`success` / `warning` / `error`).
 
 ### Spotly components — `src/components/`
 
@@ -133,8 +134,10 @@ Two with sharp edges:
 | `AmenityChips` | AMEN-2 — read-only, never pressable. Tags lock after the first reviewer |
 | `AmenityFilterChips` | AMEN-3 — selection is a hard constraint on search, never a ranking weight |
 | `ReviewCard` | REV-2, REV-5, SEARCH-2 — no author, tap expands in place, a separate control navigates |
+| `ReviewCarousel` | REV-4 — the one horizontal deck in the app (SPOT-4's single exception). Wraps `ReviewCard` with `showSpotContext` off rather than defining a second review surface |
 | `ReviewBodyField` | REV-10, REV-11 — the prompt and the 15-word counter, in one place |
 | `EmptyState` | SEARCH-4 — title, description, action |
+| `ReportSheet` | MOD-1/2/3 — the one modal; optional reason, files a report, never removes the card client-side |
 | `Screen` | Safe area and background, decided once |
 
 Domain types mirroring database enums live in `src/lib/` — `occupancy.ts`, `amenities.ts`, `reviews.ts`. Keep them in sync with the migration.
@@ -144,6 +147,27 @@ Build a new component when a rule needs enforcing, or when the same composition 
 ---
 
 ## Patterns
+
+### Navigation
+
+Three destinations, in a **native tab bar** — `NativeTabs` from `expo-router/unstable-native-tabs`, which renders UITabBarController on iOS and BottomNavigationView on Android rather than a JS lookalike.
+
+| Tab | Route | SF Symbol / Material Symbol |
+| --- | --- | --- |
+| Home | `(app)/(tabs)/index` | `house` / `home` |
+| Search | `(app)/(tabs)/search` | `magnifyingglass` / `search` |
+| Favourites | `(app)/(tabs)/favorites` | `heart` / `favorite_border` |
+
+The tab bar is the only surface that uses the **platform's** icon set instead of Lucide. Matching the OS beats matching the app here, it costs nothing to ship, and both sets carry a filled variant for the selected state — so selection is legible without leaning on the tint alone.
+
+It is native, which means **NativeWind cannot reach it**. Colours come from `THEME` in `lib/theme.ts` — the mirror that exists for exactly this — read through `useColorScheme()` in the layout, because a native prop set once does not re-read itself when the system flips to dark. Selected is `primary`, unselected is `muted-foreground`, the same pair as every other selected state in the app. Leave the background alone: the default is the system material, and setting a flat colour throws away the iOS 26 scroll-edge translucency.
+
+Two consequences for screens:
+
+- **Tab screens have no navigation header.** The title belongs in the screen, as an `h2` in the list header, where it scrolls with the content — see home and favourites.
+- **Tab screens drop the `bottom` safe-area edge.** The tab bar already sits in that inset and insets its own content; adding it again pads the list twice.
+
+Anything pushed on top — spot detail, the two forms, the content policy — keeps its native header and covers the tab bar. A destination gets a tab; an action does not, which is why "Add a spot" stays a button on home.
 
 ### The four states
 
@@ -185,6 +209,22 @@ Copy is part of the component, not a decoration applied after.
 - Say what happened, not what the system did. "Nothing matches that yet", not "Query returned 0 results".
 - Fixed strings live next to the rule they express — `NO_RECENT_REPORTS` in `lib/occupancy.ts`, `REVIEW_PROMPT` in `lib/reviews.ts`. A string on two screens is a constant, so it cannot be reworded on one of them.
 - No exclamation marks, no "Oops". The voice is a straight answer from someone who has been there.
+
+### Haptics
+
+Tactile feedback is a design-system behaviour, not a per-screen reminder. Screens never import `expo-haptics`. They call the named helpers in `src/lib/haptics.ts`, and primitives fire the interaction ones so a tap cannot be forgotten.
+
+| Helper | When |
+| --- | --- |
+| `press()` | A control was pressed. `Button` fires this. |
+| `selection()` | A choice changed. `Toggle`, `SelectItem`, review-card expand. |
+| `success()` | A write landed — magic link sent, survey saved, review posted, check-in accepted. |
+| `warning()` | Soft rejection — rate-limited check-in, a write that cannot proceed as typed. |
+| `error()` | Hard failure — network drop, submit rejected. |
+
+Press and selection fire from the primitive on the tap. Success, warning, and error fire from the write *result* — the tap already buzzed, the outcome is a second, different signal. Web is a no-op. There is no in-app toggle; the OS haptic setting is enough.
+
+A raw `Pressable` that is not a primitive (review-card expand) calls `selection()` itself. Do not add a haptic to a display-only surface.
 
 ### Accessibility
 

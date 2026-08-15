@@ -25,13 +25,13 @@ Screens live in the Figma file `rR0AeRDO12FR0J2UYQ1MzS`, page `2:53`.
 | 02 | Magic-link callback | `4:29` | `(auth)/callback` |
 | 03 | Taste survey | `4:50` | `(onboarding)/survey` |
 | 04 | First review (gate) | `5:2` | `(onboarding)/first-review` |
-| 05 | Home | `5:29` | `(app)/index` |
-| 06 | Search results | `5:56` | `(app)/search` |
+| 05 | Home | `5:29` | `(app)/(tabs)/index` |
+| 06 | Search results | `5:56` | `(app)/(tabs)/search` |
 | 07 | Spot detail | `5:83` | `(app)/spot/[id]` |
 | 08 | Add review | `5:113` | `(app)/review/new` |
-| 09 | Search — no matches | `5:137` | `(app)/search`, empty state |
+| 09 | Search — no matches | `5:137` | `(app)/(tabs)/search`, empty state |
 | 10 | Add a spot | `5:161` | `(app)/spot/new` |
-| 11 | Favourites | `5:191` | `(app)/favorites` |
+| 11 | Favourites | `5:191` | `(app)/(tabs)/favorites` |
 | 12 | Report sheet | `5:215` | modal, **not a route** |
 | 13 | Content policy | `5:239` | static screen |
 

@@ -1,6 +1,7 @@
 import { Icon } from '@/components/ui/icon';
 import { NativeOnlyAnimatedView } from '@/components/ui/native-only-animated-view';
 import { TextClassContext } from '@/components/ui/text';
+import { selection } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
 import * as SelectPrimitive from '@rn-primitives/select';
 import { Check, ChevronDown, ChevronDownIcon, ChevronUpIcon } from 'lucide-react-native';
@@ -150,6 +151,7 @@ function SelectLabel({
 function SelectItem({
   className,
   children,
+  onPress,
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Item>) {
   return (
@@ -162,6 +164,10 @@ function SelectItem({
         props.disabled && 'opacity-50',
         className
       )}
+      onPress={(event) => {
+        selection();
+        onPress?.(event);
+      }}
       {...props}>
       <View className="absolute right-2 flex size-3.5 items-center justify-center">
         <SelectPrimitive.ItemIndicator>

@@ -118,4 +118,4 @@ Biased toward recall deliberately. 56 reviews is a sparse space; on-topic querie
 
 ### Screen
 
-- `(app)/search` — vertical list of review cards, not a carousel. Each card: review body (truncated), spot name, building, occupancy pill, tag chips. Tap expands in place. Explicit empty state.
+- `(app)/(tabs)/search` — vertical list of review cards, not a carousel. Each card: review body (truncated), spot name, building, occupancy pill, tag chips. Tap expands in place. Explicit empty state. The route is still `/search`; the tab group does not change the URL.

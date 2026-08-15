@@ -74,14 +74,30 @@ function RootNavigator() {
       </Stack.Protected>
 
       {/*
-        Same rule as onboarding above: declaration order is fallback order, so
-        `index` stays first and `search` is only ever reached from it. There is no
-        `(app)/_layout.tsx` and no tab bar, so every route is declared here by its
-        full path-with-group.
+        The native tab bar is the root of the app stack and headerless — each of
+        its three screens owns its own top bar. Everything else is pushed on top
+        of the whole tab navigator with a native header, so a detail screen
+        covers the tab bar rather than sitting inside one tab's history: the spot
+        page is reached from all three tabs and belongs to none of them. The
+        header is where the back button and the top inset come from; those
+        screens render under it with `edges` dropping `top`. The spot page sets
+        its own title from the loaded area name.
       */}
       <Stack.Protected guard={!!session && onboardingComplete}>
-        <Stack.Screen name="(app)/index" />
-        <Stack.Screen name="(app)/search" />
+        <Stack.Screen name="(app)/(tabs)" />
+        <Stack.Screen name="(app)/spot/[id]" options={{ headerShown: true, title: '' }} />
+        <Stack.Screen
+          name="(app)/spot/new"
+          options={{ headerShown: true, title: 'Add a spot' }}
+        />
+        <Stack.Screen
+          name="(app)/review/new"
+          options={{ headerShown: true, title: 'Add your review' }}
+        />
+        <Stack.Screen
+          name="(app)/content-policy"
+          options={{ headerShown: true, title: 'Content policy' }}
+        />
       </Stack.Protected>
 
       {/*

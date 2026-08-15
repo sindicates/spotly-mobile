@@ -11,6 +11,9 @@ Expo SDK 57 changed a lot. Read the versioned docs at https://docs.expo.dev/vers
 | Folder structure | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) |
 | A specific feature | [`docs/features/`](docs/features/) |
 | Building any UI | [`docs/DESIGN.md`](docs/DESIGN.md) — and the `spotly-ui` skill |
+| Backend: tables, views, RPCs, edge functions | [`docs/infra/supabase.md`](docs/infra/supabase.md) |
+| Validating text input | [`docs/infra/input-validation.md`](docs/infra/input-validation.md) |
+| Haptic feedback | [`docs/infra/haptics.md`](docs/infra/haptics.md) |
 
 ## Ground rules
 
@@ -38,7 +41,7 @@ Requirements, not preferences. Breaking one is a bug even if it builds.
 | You changed… | Update |
 | --- | --- |
 | A product decision / requirement | The feature doc (and `PRODUCT.md` if the feature list changed) |
-| Routes, folders, files that were `*intended*` | `docs/ARCHITECTURE.md` |
+| Routes, folders that were `*intended*` | `docs/ARCHITECTURE.md` |
 | Stack, env vars, setup/run commands | `README.md` and `docs/TECH_STACK.md` |
 | Design tokens, shared components, UI patterns | `docs/DESIGN.md` (and the Figma wireframe, if a screen changed) |
 | An invariant or ground rule | `AGENTS.md` |

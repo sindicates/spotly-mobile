@@ -6,6 +6,7 @@ import { Screen } from '@/components/screen';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Text } from '@/components/ui/text';
+import { error as hapticError, success } from '@/lib/haptics';
 import {
   saveSurveyResponse,
   SURVEY_QUESTIONS,
@@ -54,8 +55,10 @@ export default function Survey() {
     setError('');
     try {
       await saveSurveyResponse(all);
+      success();
       router.replace('/first-review');
     } catch (cause) {
+      hapticError();
       setError(errorMessage(cause, "We couldn't save those answers."));
     } finally {
       setSaving(false);

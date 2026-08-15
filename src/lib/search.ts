@@ -2,19 +2,21 @@
  * Semantic search, client side. See docs/features/semantic-search.md.
  *
  * One Edge Function call, not two round trips: `search` embeds the query and
- * calls `search_reviews` in the same request. The client could embed first and
- * call the RPC itself, but that is two mobile round trips on the critical path of
- * the app's core interaction — and the first of them would need the OpenAI key on
- * the device, which is a function secret and never an `EXPO_PUBLIC_` var.
+ * calls `search_reviews` in the same request. The function returns cards already
+ * shaped as reviews-with-spot (SEARCH-2); this module maps the wire rows onto
+ * `SpotReviewCard`, the same type the home feed uses, so `ReviewCard` renders
+ * both identically.
  *
  * Ranking is not this module's job. Dedupe to one card per spot (SEARCH-2), the
  * tag filter as a hard constraint (SEARCH-3), and the similarity floor that IS
  * the empty state (SEARCH-4) all live in the migration. Nothing here re-sorts,
- * re-filters, or pads the list.
+ * re-filters, or pads the list. An empty array is SEARCH-4, not an error.
  */
 
 import type { AmenityTag } from '@/lib/amenities';
-import type { OccupancyReading, OccupancyStatus } from '@/lib/occupancy';
+import { toOccupancyReading } from '@/lib/occupancy';
+import type { OccupancyStatus } from '@/lib/occupancy';
+import type { SpotReviewCard } from '@/lib/reviews';
 import { functionErrorMessage, RequestError, supabase } from '@/lib/supabase';
 
 /**
@@ -41,26 +43,12 @@ type SearchReviewRow = {
   similarity: number;
   area_name: string;
   building: string;
-  amenity_tags: AmenityTag[];
-  review_count: number;
+  amenity_tags: AmenityTag[] | null;
+  review_count: number | null;
   /** Null when there is no recent report. The left join's miss. */
   occupancy: OccupancyStatus | null;
   /** Null with `occupancy`; the two are set together or not at all. */
   reported_at: string | null;
-};
-
-/** A review card with its spot attached — what `ReviewCard` renders. */
-export type SearchResult = {
-  reviewId: string;
-  spotId: string;
-  body: string;
-  similarity: number;
-  areaName: string;
-  building: string;
-  amenityTags: AmenityTag[];
-  reviewCount: number;
-  /** `null` is "no recent reports", not missing data. */
-  occupancy: OccupancyReading;
 };
 
 /**
@@ -82,7 +70,7 @@ export type SearchResult = {
 export async function searchReviews(
   query: string,
   filterTags: readonly AmenityTag[] = []
-): Promise<SearchResult[]> {
+): Promise<SpotReviewCard[]> {
   const { data, error } = await supabase.functions.invoke<{ results: SearchReviewRow[] }>(
     'search',
     { body: { query, filter_tags: filterTags } }
@@ -95,20 +83,13 @@ export async function searchReviews(
     reviewId: row.review_id,
     spotId: row.spot_id,
     body: row.body,
-    similarity: row.similarity,
     areaName: row.area_name,
     building: row.building,
-    amenityTags: row.amenity_tags ?? [],
-    reviewCount: row.review_count,
-    // The whole reason the wire type above is hand-written. Both columns come
-    // from the same left join, so they arrive together or not at all — and
-    // requiring both is what keeps a status with no timestamp behind it
-    // unrepresentable. `OccupancyPill` re-checks freshness against `reportedAt`
-    // (OCC-4), so a status paired with a placeholder date would defeat exactly
-    // the check that exists to stop a stale badge.
-    occupancy:
-      row.occupancy && row.reported_at
-        ? { status: row.occupancy, reportedAt: row.reported_at }
-        : null,
+    tags: row.amenity_tags ?? [],
+    reviewCount: row.review_count ?? 0,
+    // Both occupancy columns come from the same left join, so they arrive
+    // together or not at all. `toOccupancyReading` is what keeps a status with
+    // no timestamp behind it unrepresentable (OCC-4).
+    occupancy: toOccupancyReading(row.occupancy, row.reported_at),
   }));
 }

@@ -9,7 +9,7 @@
  */
 
 import type { Database } from '@/lib/database.types';
-import { embedReviewBody, toVectorLiteral } from '@/lib/reviews';
+import { toVectorLiteral, tryEmbedReviewBody } from '@/lib/reviews';
 import { RequestError, supabase, unwrap } from '@/lib/supabase';
 
 import type { AmenityTag } from '@/lib/amenities';
@@ -43,6 +43,25 @@ export async function listBuildings(): Promise<Building[]> {
   return unwrap(
     await supabase.from('buildings').select('id, name, short_name').order('name')
   );
+}
+
+/**
+ * One spot's catalog row for its detail page (SPOT-2).
+ *
+ * Reads `public_spots`, so `created_by` never comes across (AUTH-4). Returns
+ * null for an id that does not resolve — a spot removed by moderation, or a
+ * stale deep link — which the screen turns into a "spot not found" state rather
+ * than a crash.
+ */
+export async function getSpot(spotId: string): Promise<PublicSpot | null> {
+  const row = unwrap(
+    await supabase
+      .from('public_spots')
+      .select('id, building_id, building, building_short, area_name, amenity_tags, review_count')
+      .eq('id', spotId)
+      .maybeSingle()
+  );
+  return row as PublicSpot | null;
 }
 
 /**
@@ -98,7 +117,9 @@ export async function createSpotWithReview({
   amenityTags,
   body,
 }: CreateSpotWithReviewInput): Promise<string> {
-  const embedding = await embedReviewBody(body);
+  // Best-effort, not a gate (REV-3, revised): losing a contributed spot because
+  // the embedding service is unconfigured is the worse of the two failures.
+  const embedding = await tryEmbedReviewBody(body);
   // `returns table (spot_id, review_id)` is a set, so PostgREST answers with an
   // array of one row rather than a scalar.
   const rows = unwrap(
@@ -107,7 +128,7 @@ export async function createSpotWithReview({
       p_area_name: areaName.trim(),
       p_amenity_tags: [...amenityTags],
       p_body: body,
-      p_embedding: toVectorLiteral(embedding),
+      p_embedding: embedding ? toVectorLiteral(embedding) : undefined,
     })
   );
   return rows[0].spot_id;

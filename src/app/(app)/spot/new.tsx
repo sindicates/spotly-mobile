@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -20,10 +21,8 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import type { AmenityTag } from '@/lib/amenities';
-import { error as hapticError, success, warning } from '@/lib/haptics';
-import { FIRST_REVIEW_PROMPT } from '@/lib/onboarding';
+import { error as hapticError, selection, success, warning } from '@/lib/haptics';
 import { createReview, isDuplicateReviewError, meetsWordFloor } from '@/lib/reviews';
-import { useSession } from '@/lib/session';
 import {
   createSpotWithReview,
   isDuplicateSpotError,
@@ -36,19 +35,20 @@ import {
 import { errorMessage } from '@/lib/utils';
 
 /**
- * ONB-3..5. The gate: one real review, and the app unlocks.
+ * SPOT-3, SPOT-5. Add a spot that isn't listed yet — a structured form, never
+ * free text, because constraining entry is where duplicates actually get
+ * prevented.
  *
- * The screen is the add-review and add-spot forms folded together, which is
- * ONB-4 — if the spot the user names isn't listed, the structured form (SPOT-5)
- * appears in place rather than sending them somewhere else and losing the
- * sentence they were halfway through writing.
- *
- * Which of the two writes runs is decided by whether they picked an existing
- * spot out of the duplicate check, not by a mode switch they have to understand.
+ * Same shape as the onboarding first review (they are the two callers of this
+ * flow, kept separate on purpose): building, specific spot with an inline
+ * duplicate guard, write-once amenity tags, and a first review with the fixed
+ * prompt and 15-word floor. If the typed spot already exists, the guard turns
+ * this into "review that one instead" — a new review on the existing spot rather
+ * than a duplicate entry, since occupancy signal fragmenting across duplicates
+ * is the failure the guard exists to prevent.
  */
-export default function FirstReview() {
+export default function AddSpot() {
   const insets = useSafeAreaInsets();
-  const { completeOnboarding } = useSession();
 
   const [buildings, setBuildings] = useState<Building[] | null>(null);
   const [buildingsError, setBuildingsError] = useState('');
@@ -57,7 +57,6 @@ export default function FirstReview() {
   const [spots, setSpots] = useState<readonly PublicSpot[]>([]);
 
   const [areaName, setAreaName] = useState('');
-  /** Matches are shown after a blur, not per keystroke — see SPOT-5. */
   const [dupeChecked, setDupeChecked] = useState(false);
   const [existing, setExisting] = useState<PublicSpot | null>(null);
 
@@ -69,8 +68,6 @@ export default function FirstReview() {
 
   const buildingId = building?.value;
 
-  // Settled in the promise handlers rather than after an `await`: these run from
-  // an effect, and a setState in an effect body is a cascading render.
   const loadBuildings = useCallback(() => {
     listBuildings().then(
       (rows) => {
@@ -87,12 +84,10 @@ export default function FirstReview() {
   useEffect(loadBuildings, [loadBuildings]);
 
   const loadSpots = useCallback((id: string) => {
-    listSpotsInBuilding(id).then(setSpots, () => {
-      // Soft-fail on purpose. The duplicate check is a guard, not a gate — if it
-      // cannot run, the worst case is a duplicate spot, and blocking the review
-      // over it would cost the contribution this whole screen exists to collect.
-      setSpots([]);
-    });
+    // Soft-fail: the duplicate check is a guard, not a gate. If it can't run the
+    // worst case is a duplicate spot, and blocking the contribution over it costs
+    // more than it saves.
+    listSpotsInBuilding(id).then(setSpots, () => setSpots([]));
   }, []);
 
   useEffect(() => {
@@ -105,6 +100,8 @@ export default function FirstReview() {
     !!buildingId && areaName.trim().length > 0 && meetsWordFloor(body) && !submitting;
 
   function pickExisting(spot: PublicSpot) {
+    // Choosing an existing spot out of the duplicate list is a selection.
+    selection();
     setExisting(spot);
     setAreaName(spot.area_name);
     // Tags belong to the spot and were locked by its first reviewer (AMEN-2).
@@ -124,28 +121,20 @@ export default function FirstReview() {
     setError('');
 
     try {
-      if (existing) {
-        await createReview(existing.id, body);
-      } else {
-        await createSpotWithReview({ buildingId, areaName, amenityTags: tags, body });
-      }
-      // Flips the device-local flag, which flips the route guard — the app
-      // unlocks straight into home with no navigation call of its own (ONB-5).
+      const spotId = existing
+        ? (await createReview(existing.id, body), existing.id)
+        : await createSpotWithReview({ buildingId, areaName, amenityTags: tags, body });
       success();
-      completeOnboarding();
+      // Replace, not push: the form should not sit behind the spot page in the
+      // back stack once its job is done.
+      router.replace(`/spot/${spotId}`);
     } catch (cause) {
-      // ONB-5's accepted trade. The completion flag is per-install, so a
-      // reinstall walks this person back through onboarding — and they have
-      // landed on a spot they already reviewed. They have contributed. This is
-      // an unlock, not an error.
       if (isDuplicateReviewError(cause)) {
-        success();
-        completeOnboarding();
+        // They picked an existing spot they had already reviewed. Send them to it.
+        warning();
+        setError('You have already reviewed this spot.');
         return;
       }
-      // The other collision: the spot name is already taken in this building,
-      // because they typed past the inline check or someone beat them to it.
-      // Reload so it appears in the list they can pick from.
       if (isDuplicateSpotError(cause)) {
         warning();
         setError('That spot is already listed. Pick it above and add your review there.');
@@ -154,14 +143,14 @@ export default function FirstReview() {
         return;
       }
       hapticError();
-      setError(errorMessage(cause, "We couldn't post that review."));
+      setError(errorMessage(cause, "We couldn't add that spot."));
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <Screen edges={['top']}>
+    <Screen edges={['bottom']}>
       <KeyboardAvoidingView
         className="flex-1"
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -169,12 +158,9 @@ export default function FirstReview() {
           className="flex-1"
           contentContainerClassName="gap-6 px-5 pb-10 pt-4"
           keyboardShouldPersistTaps="handled">
-          <View className="gap-2">
-            <Text variant="h3">{FIRST_REVIEW_PROMPT}</Text>
-            <Text variant="muted">
-              One review unlocks Spotly. Yours might be the first anyone reads for this place.
-            </Text>
-          </View>
+          <Text variant="muted">
+            A spot and its first review are added together — yours might be the first anyone reads.
+          </Text>
 
           {/* Building — loading, error, and success all render. */}
           <View className="gap-2">
@@ -190,8 +176,6 @@ export default function FirstReview() {
                   variant="outline"
                   size="sm"
                   className="self-start"
-                  // Clearing the message first is what puts the skeleton back —
-                  // otherwise a retry looks like nothing happened until it lands.
                   onPress={() => {
                     setBuildingsError('');
                     loadBuildings();
@@ -280,11 +264,7 @@ export default function FirstReview() {
             ) : null}
           </View>
 
-          {/*
-            Tags appear only when a new spot is being created. This is the one
-            write that ever sets them — they lock to the first reviewer (AMEN-2),
-            so there is nothing to show here for a spot that already exists.
-          */}
+          {/* Tags appear only for a new spot — the one write that sets them (AMEN-2). */}
           {isNewSpot ? (
             <View className="gap-2">
               <Label nativeID="tags">What&apos;s it got?</Label>
@@ -304,12 +284,16 @@ export default function FirstReview() {
             </View>
           ) : null}
 
-          {/*
-            REV-10, REV-11. The prompt and the word floor are the same here as on
-            every other review form; the screen's own question is the heading
-            above, not a second wording of this one.
-          */}
           <ReviewBodyField value={body} onChangeText={setBody} />
+
+          {/* MOD-3: the content policy is one tap from the review form. */}
+          <Button
+            variant="link"
+            size="sm"
+            className="self-start px-0"
+            onPress={() => router.push('/content-policy')}>
+            <Text>Read the content policy</Text>
+          </Button>
 
           {error ? (
             <Text variant="small" className="text-destructive">
@@ -318,7 +302,7 @@ export default function FirstReview() {
           ) : null}
 
           <Button onPress={submit} disabled={!canSubmit}>
-            <Text>{submitting ? 'Posting…' : 'Post review and unlock Spotly'}</Text>
+            <Text>{submitting ? 'Adding…' : 'Add spot and post review'}</Text>
           </Button>
         </ScrollView>
       </KeyboardAvoidingView>
