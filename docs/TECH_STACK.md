@@ -98,6 +98,6 @@ Only `EXPO_PUBLIC_*` vars are inlined into the shipped bundle. They must be safe
 | `EXPO_PUBLIC_SUPABASE_URL` | `.env` (client) | Supabase client |
 | `EXPO_PUBLIC_SUPABASE_ANON_KEY` | `.env` (client) | Supabase client — the only key that belongs on-device |
 | `OPENAI_API_KEY` | `supabase secrets set` | Edge Functions `embed` and `search` |
-| `SUPABASE_SERVICE_ROLE_KEY` | local shell, never committed | Seed script only. Bypasses RLS. |
+| `SUPABASE_SERVICE_ROLE_KEY` | local shell, never committed | Seed and backfill scripts (`db:embeddings`). Bypasses RLS. Must belong to the same stack as the URL above. |
 
 Never prefix a secret with `EXPO_PUBLIC_`.

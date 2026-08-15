@@ -7,9 +7,11 @@
 -- WHAT THIS DOES NOT DO: embeddings. reviews.embedding is left null, so these
 -- rows are invisible to search_reviews (it filters `embedding is not null`).
 -- That is deliberate rather than a gap — a fake vector would rank as a real
--- match and make the SEARCH-4 threshold impossible to calibrate. Backfill by
--- running every body through the `embed` Edge Function once it exists; the
--- doc's plan is one batched OpenAI call, not one per row.
+-- match and make the SEARCH-4 threshold impossible to calibrate.
+--
+-- Nothing here is searchable until `npm run db:embeddings` has run, so a reset
+-- is two commands, not one. That script is the backfill (one batched OpenAI
+-- call, not one per row); it is safe to re-run and says how many rows it found.
 --
 -- Runs as postgres on reset, so RLS and the client grants do not apply here.
 -- The .edu gate (AUTH-1) is an Auth-API hook, not a DB trigger, so these direct

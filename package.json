@@ -65,6 +65,7 @@
     "typecheck": "tsc --noEmit",
     "gen:types": "supabase gen types typescript --linked > src/lib/database.types.ts",
     "db:reset": "supabase db reset",
+    "db:embeddings": "node scripts/backfill-embeddings.mjs",
     "functions:serve": "supabase functions serve --env-file .env",
     "dev:token": "node scripts/dev-token.mjs",
     "dev:signin": "node scripts/dev-signin.mjs",

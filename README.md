@@ -65,8 +65,21 @@ Schema lives in `supabase/migrations/`. Never edit the hosted schema by hand —
 
 ```bash
 npm run db:reset      # rebuild the local database and load supabase/seed.sql
+npm run db:embeddings # embed every review that has no vector yet
 npm run gen:types     # regenerate src/lib/database.types.ts from the linked project
 ```
+
+`db:reset` leaves `reviews.embedding` null on purpose — a fabricated vector ranks
+as a real match and makes the search threshold impossible to calibrate — so
+**nothing is searchable until `db:embeddings` runs.** A reset is those two
+commands, not one. It is safe to re-run: a second pass reports `0 remaining`,
+which is also how you confirm the first one finished.
+
+That script needs `SUPABASE_SERVICE_ROLE_KEY` and `OPENAI_API_KEY` from `.env`.
+The service-role key must belong to the same stack as `EXPO_PUBLIC_SUPABASE_URL`
+— point one at local and the other at hosted and PostgREST quietly falls back to
+`anon`, which was revoked on `reviews`, so the failure names a role you never
+asked for. Local values come from `supabase status` (`SECRET_KEY`).
 
 After writing a migration: apply it locally, regenerate types, then `npx supabase db push` to send it up. `gen:types` needs the project linked and a `supabase login`, and `db:reset` needs Docker running.
 
@@ -108,8 +121,9 @@ and tap the link.
 ## Edge Functions
 
 `supabase/functions/` is the only code allowed to hold `OPENAI_API_KEY`. `embed`
-turns text into a `vector(1536)`; `_shared/embedding.ts` owns the model and
-dimension count so `search` cannot drift off them later.
+turns text into a `vector(1536)`; `search` embeds a query and returns review
+cards. `_shared/embedding.ts` owns the model and dimension count so the two
+cannot drift off them.
 
 ```bash
 npm run functions:serve    # serves every function against the local stack
@@ -120,11 +134,17 @@ takes no function name — `supabase functions serve embed` is rejected as an
 unexpected argument. Hot reload is on, so edits apply without a restart.
 
 ```bash
-curl -X POST "http://127.0.0.1:54331/functions/v1/embed" \
-  -H "Authorization: Bearer $(npm run -s dev:token)" \
-  -H "Content-Type: application/json" \
-  -d '{"input":"quiet corner with outlets"}'
+curl -X POST "http://127.0.0.1:54331/functions/v1/embed" -H "Authorization: Bearer $(npm run -s dev:token)" -H "Content-Type: application/json" -d '{"input":"quiet corner with outlets"}'
 ```
+
+```bash
+curl -X POST "http://127.0.0.1:54331/functions/v1/search" -H "Authorization: Bearer $(npm run -s dev:token)" -H "Content-Type: application/json" -d '{"query":"somewhere quiet to lock in","filter_tags":["outlets"]}'
+```
+
+`search` returns `{ "results": [ … ] }`, one card per spot, ranked by similarity.
+An empty array is the SEARCH-4 answer — "no strong match" — not a failure. If
+every query comes back empty, the corpus is unembedded: run `npm run
+db:embeddings`.
 
 `verify_jwt` only proves the caller holds a JWT this project signed — the anon key
 qualifies — so each function also resolves the token to a real user before
@@ -136,6 +156,7 @@ Deployed functions do not read `.env`:
 ```bash
 npx supabase secrets set OPENAI_API_KEY=sk-...
 npx supabase functions deploy embed
+npx supabase functions deploy search
 ```
 
 This folder is Deno, so it sits outside the app's TypeScript setup — see

@@ -10,31 +10,38 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
 
 /**
+ * A Supabase client that acts as the caller, not as the function.
+ *
+ * Anything a function reads or writes on the caller's behalf goes through this,
+ * which is what keeps the grants meaningful: `search_reviews` is revoked from
+ * anon and granted to `authenticated` only, and service_role has no execute on
+ * it deliberately. A function holding the service key would be a way around
+ * every grant in 20260814060200_rpcs.sql, so it does not hold one.
+ */
+export function callerClient(req: Request) {
+  // SUPABASE_URL / SUPABASE_ANON_KEY are injected by the platform and by
+  // `functions serve` — that is what the "Env name cannot start with SUPABASE_"
+  // startup message is about. Do not put them in .env.
+  return createClient(Deno.env.get('SUPABASE_URL')!, Deno.env.get('SUPABASE_ANON_KEY')!, {
+    // Forwarding the caller's header is the load-bearing part: it makes
+    // getUser() evaluate *their* token, and PostgREST run the RPC as *them*.
+    // Without it the client authenticates as anon, finds no user, and every
+    // request 401s — including the valid ones.
+    global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } },
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+}
+
+/**
  * Returns the caller's account id, or null when there is no signed-in user
  * behind the request. Null is the caller's cue to return 401 — this returns
  * rather than throws so it cannot be swallowed by a catch block meant for
  * OpenAI failures and reported as a 500.
  */
 export async function requireUser(req: Request): Promise<string | null> {
-  const authorization = req.headers.get('Authorization');
-  if (!authorization) return null;
+  if (!req.headers.get('Authorization')) return null;
 
-  // SUPABASE_URL / SUPABASE_ANON_KEY are injected by the platform and by
-  // `functions serve` — that is what the "Env name cannot start with SUPABASE_"
-  // startup message is about. Do not put them in .env.
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_ANON_KEY')!,
-    {
-      // Forwarding the caller's header is the load-bearing part: it makes
-      // getUser() evaluate *their* token. Without it the client authenticates as
-      // anon, finds no user, and every request 401s — including the valid ones.
-      global: { headers: { Authorization: authorization } },
-      auth: { persistSession: false, autoRefreshToken: false },
-    }
-  );
-
-  const { data, error } = await supabase.auth.getUser();
+  const { data, error } = await callerClient(req).auth.getUser();
   if (error || !data.user) return null;
 
   // AUTH-4: for logging and rate-limit decisions only. This never goes into a
