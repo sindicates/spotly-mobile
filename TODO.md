@@ -1,3 +1,2 @@
-- App Icon
-- Splashscreen
-- Haptics 
+- 
+- Trending review feed on home (SPOT-1, spot-catalog.md:54). Deferred — it has no read path: `public_reviews` carries `spot_id` but not the `area_name` / `building` / `amenity_tags` / `review_count` / occupancy that `ReviewCard` needs. Needs a `trending_reviews` RPC: same `returns table` as `search_reviews`, ordered by `trending_score` instead of similarity, `security definer`, granted to `authenticated`. One round trip, reuses `ReviewCard` unchanged, and avoids a three-view client-side join hardening into permanence.

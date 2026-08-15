@@ -2,7 +2,7 @@
 
 Routes live in `src/app/`, not `app/`. Path alias `@/*` → `src/*`.
 
-Folders marked *intended* are specified but not created yet. Screen detail lives with the [feature that owns it](features/). The report sheet is a modal, not a route.
+Folders and files marked *intended* are specified but not created yet. Screen detail lives with the [feature that owns it](features/). The report sheet is a modal, not a route.
 
 ```
 spotly-mobile/
@@ -16,23 +16,24 @@ spotly-mobile/
 │   │   ├── (onboarding)/
 │   │   │   ├── survey.tsx
 │   │   │   └── first-review.tsx
-│   │   └── (app)/                *intended*
-│   │       ├── index.tsx         home
-│   │       ├── search.tsx
-│   │       ├── favorites.tsx
+│   │   └── (app)/
+│   │       ├── index.tsx         home — search-first shell
+│   │       ├── search.tsx        semantic search results
+│   │       ├── favorites.tsx     *intended*
 │   │       ├── review/
-│   │       │   └── new.tsx
+│   │       │   └── new.tsx       *intended*
 │   │       └── spot/
-│   │           ├── [id].tsx
-│   │           └── new.tsx
+│   │           ├── [id].tsx      *intended*
+│   │           └── new.tsx       *intended*
 │   ├── components/               shared UI — pills, chips, cards, empty states
 │   │   └── ui/                   React Native Reusables primitives (vendored, editable)
 │   ├── hooks/                    data-fetching hooks — one per read path
 │   │   ├── use-async.ts          the shared read primitive
 │   │   ├── use-buildings.ts      building picker
+│   │   ├── use-search.ts         search results — submitted query, not keystrokes
 │   │   └── use-spots-in-building.ts   add-spot duplicate guard
 │   ├── lib/
-│   │   ├── supabase.ts           client, plus RequestError / unwrap
+│   │   ├── supabase.ts           client, plus RequestError / unwrap / functionErrorMessage
 │   │   ├── database.types.ts     GENERATED — `npm run gen:types`, never hand-edit
 │   │   ├── session.tsx           SessionProvider / useSession
 │   │   ├── storage.ts            MMKV — device-local state (the onboarding flag)
@@ -40,6 +41,7 @@ spotly-mobile/
 │   │   ├── onboarding.ts         survey questions, first-review prompt
 │   │   ├── spots.ts              buildings / public_spots reads, add-spot write
 │   │   ├── reviews.ts            word floor, prompt, embed + review writes
+│   │   ├── search.ts             the search Edge Function call, wire → domain
 │   │   ├── amenities.ts          the eight tags
 │   │   ├── occupancy.ts          occupancy states and copy
 │   │   └── theme.ts              design-token mirror for navigation chrome
@@ -50,7 +52,7 @@ spotly-mobile/
 │   └── functions/           Deno Edge Functions
 │       ├── _shared/         embedding helper, auth guard, CORS — shared, never deployed
 │       ├── embed/           text → vector(1536)
-│       └── search/          *intended* — embeds a query, returns cards
+│       └── search/          embeds a query, returns cards
 ├── docs/
 │   ├── DESIGN.md            the design system — tokens, type, components, patterns
 │   └── features/            one file per product feature
@@ -92,13 +94,17 @@ Note that view rows come back with every column nullable — Postgres cannot pro
 
 **Buildings are reference data, not seed data.** `buildings` is populated by a migration, so it is present in every environment. It is the one table holding real-world facts rather than rows users create, and it is a required field on the add-spot form — an empty `buildings` blocks the flow outright rather than degrading it. Fixtures that need a building join it by `short_name`.
 
-**`supabase/seed.sql`** — local fake data, applied automatically by `supabase db reset`. Spots, reviews, check-ins, favourites, one open report. It leaves `reviews.embedding` null on purpose: a fabricated vector ranks as a real match and makes the `min_similarity` threshold impossible to calibrate. Seeded reviews are invisible to search until something backfills real embeddings.
+**`supabase/seed.sql`** — local fake data, applied automatically by `supabase db reset`. Spots, reviews, check-ins, favourites, one open report. It leaves `reviews.embedding` null on purpose: a fabricated vector ranks as a real match and makes the `min_similarity` threshold impossible to calibrate. Seeded reviews are invisible to search until `npm run db:embeddings` (`scripts/backfill-embeddings.mjs`) backfills real ones, so a reset is two commands.
 
 **`supabase/functions/`** — Deno Edge Functions. `embed` turns review text into a vector; `search` embeds a query and returns cards. They are the only place the OpenAI key is allowed. Share one embedding helper so the two cannot drift.
 
 A folder prefixed `_` is skipped by the CLI rather than deployed as an endpoint, which is what lets `_shared/` sit here as a library. `embedding.ts` owns the model name and dimension count together, because drift between the two functions is silent — a query embedded by a different model still returns 1536 valid floats and still scores, so search degrades into ranking by noise without erroring anywhere. `auth.ts` holds the guard both functions run before spending an OpenAI call: `verify_jwt` at the gateway only proves the bearer is a JWT this project signed, and the anon key is one, shipped in the bundle. Resolving the token to a user is a separate step and not optional.
 
 This folder is Deno, not React Native. `tsconfig.json` excludes it and `eslint.config.js` ignores it — `Deno` is a global here, imports carry `.ts` extensions, and packages resolve through `npm:` specifiers, all of which the Expo toolchain reports as errors. Editors need the Deno extension scoped by `deno.enablePaths` in `.vscode/settings.json`; do not fix it by adding Deno types to the root tsconfig, which mixes the two runtimes.
+
+**`scripts/`** — developer tooling, run by hand via `npm run`, never imported by the app. Plain `.mjs` on bare Node: `node:` builtins only, no dependencies, and `.env` parsed by hand rather than through `dotenv`. Reusing the app's `.env` is deliberate — it is what keeps a script and the app pointed at the same stack. Nothing here ships, which is why these are the only files allowed to hold the service-role key.
+
+`dev-token.mjs` mints a local-only JWT for `curl` and `dev-signin.mjs` drives the real magic-link flow at the simulator (both local-only by construction). `backfill-embeddings.mjs` and `calibrate-search.mjs` are the search pair: the first indexes the corpus, the second prints the similarity spread the `min_similarity` threshold is set from ([semantic-search.md](features/semantic-search.md)).
 
 **`docs/`** — the spec. `PRODUCT.md` is the feature list; `features/` is the requirements for each one. Do not put implementation notes that belong in a feature doc here, and do not put screens in `docs/`.
 

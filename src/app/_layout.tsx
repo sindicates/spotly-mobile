@@ -73,8 +73,15 @@ function RootNavigator() {
         <Stack.Screen name="(onboarding)/first-review" />
       </Stack.Protected>
 
+      {/*
+        Same rule as onboarding above: declaration order is fallback order, so
+        `index` stays first and `search` is only ever reached from it. There is no
+        `(app)/_layout.tsx` and no tab bar, so every route is declared here by its
+        full path-with-group.
+      */}
       <Stack.Protected guard={!!session && onboardingComplete}>
         <Stack.Screen name="(app)/index" />
+        <Stack.Screen name="(app)/search" />
       </Stack.Protected>
 
       {/*

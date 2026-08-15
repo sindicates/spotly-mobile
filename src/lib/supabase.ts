@@ -90,3 +90,30 @@ export function unwrap<T>(result: { data: T | null; error: ServerError | null })
   if (result.error) throw new RequestError(result.error);
   return result.data as T;
 }
+
+/**
+ * The sentence the Edge Function actually sent, not supabase-js's summary of it.
+ *
+ * On any non-2xx, `FunctionsHttpError.message` is the fixed string "Edge Function
+ * returned a non-2xx code" — identical whether the function is undeployed, the
+ * OpenAI key is missing, or the caller is signed out. The real explanation is the
+ * `{ error }` body, reachable through `context`, which is the undrained
+ * `Response`. Reading it is the difference between a bug report that says what
+ * broke and one that says nothing.
+ *
+ * Lives here rather than beside one caller because it describes the Edge Function
+ * error shape, not any one function: `embed` and `search` both return `{ error }`
+ * and both need the same unwrapping.
+ */
+export async function functionErrorMessage(error: Error): Promise<string> {
+  const response = (error as { context?: Response }).context;
+  if (!(response instanceof Response)) return error.message;
+  try {
+    const payload = (await response.clone().json()) as { error?: unknown };
+    if (typeof payload.error === 'string' && payload.error) return payload.error;
+  } catch {
+    // Non-JSON body (a gateway 404 for an undeployed function, say). Fall through
+    // to the status, which at least distinguishes the failures from each other.
+  }
+  return `${error.message} (HTTP ${response.status})`;
+}
