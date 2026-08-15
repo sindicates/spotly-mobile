@@ -51,6 +51,7 @@
   },
   "devDependencies": {
     "@types/react": "~19.2.2",
+    "@react-native-community/cli": "20.2.0",
     "eslint": "^9.0.0",
     "eslint-config-expo": "~57.0.1",
     "typescript": "~6.0.3"
@@ -64,6 +65,9 @@
     "typecheck": "tsc --noEmit",
     "gen:types": "supabase gen types typescript --linked > src/lib/database.types.ts",
     "db:reset": "supabase db reset",
+    "functions:serve": "supabase functions serve --env-file .env",
+    "dev:token": "node scripts/dev-token.mjs",
+    "dev:signin": "node scripts/dev-signin.mjs",
     "doctor": "npx --yes expo-doctor"
   },
   "private": true

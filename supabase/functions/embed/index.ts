@@ -14,32 +14,12 @@
  * — the attacker's own review. Closing it means embedding inside the RPC.
  */
 
+import { requireUser } from '../_shared/auth.ts';
 import { corsHeaders, jsonResponse } from '../_shared/cors.ts';
 import { EmbeddingError, embedTexts } from '../_shared/embedding.ts';
 
 /** Generous, but bounded. A review is prose, not a payload. */
 const MAX_INPUT_CHARS = 10_000;
-
-/**
- * Rejects anything that is not a signed-in user.
- *
- * The platform's `verify_jwt` gate is not sufficient on its own: supabase-js
- * sends the anon key as a bearer token when there is no session, and that key is
- * a valid JWT, so the gateway lets it through. Resolving the token to an actual
- * user is what stops an anonymous caller spending the project's token budget.
- */
-async function resolveUser(authHeader: string | null): Promise<boolean> {
-  if (!authHeader?.startsWith('Bearer ')) return false;
-
-  const supabaseUrl = Deno.env.get('SUPABASE_URL');
-  const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
-  if (!supabaseUrl || !anonKey) return false;
-
-  const response = await fetch(`${supabaseUrl}/auth/v1/user`, {
-    headers: { Authorization: authHeader, apikey: anonKey },
-  });
-  return response.ok;
-}
 
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') {
@@ -51,7 +31,7 @@ Deno.serve(async (request) => {
   }
 
   try {
-    if (!(await resolveUser(request.headers.get('Authorization')))) {
+    if (!(await requireUser(request))) {
       return jsonResponse({ error: 'Sign in to post a review.' }, 401);
     }
 

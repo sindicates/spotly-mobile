@@ -25,6 +25,10 @@ The `.edu` gate is the trust foundation for everything else — it guarantees th
 
 AUTH-4 is a schema requirement, not a UI one. Clients never read tables containing account IDs. They read views that omit them (`public_reviews`, `public_spots`, `spot_occupancy`) and write through definer RPCs that set `author_id` from `auth.uid()`. Do not grant clients direct select on `reviews`, `spots`, `check_ins`, or `reports`. `spots.created_by` leaks the same way — a spot's creator is by construction the author of its first review.
 
+**`service_role` is scoped, not exempt** (20260814220000). AUTH-4 governs what reaches a device, and `service_role` never does — it is a secret held by seed scripts and Edge Functions. But it started with no privilege on `reviews` at all, which is worth knowing because the failure is misleading: the role bypasses RLS, so a service-role read fails with `permission denied` rather than an RLS error, and "bypasses RLS entirely" reads like it should have worked. There was simply no grant underneath to bypass to.
+
+The embedding backfill needs one, since `seed.sql` leaves `reviews.embedding` null on purpose and those rows are invisible to search until something fills them. The grant is column-scoped rather than table-wide: `select (id, body, embedding)` and `update (embedding)`. `author_id` is excluded deliberately — the backfill reads text and writes a vector, and has no reason to see who wrote it. `body` and `hidden` stay unwritable, so a backfill that goes wrong cannot rewrite a review or reverse a moderation decision. `anon` and `authenticated` are unchanged: revoked on every column.
+
 ---
 
 ## Implementation

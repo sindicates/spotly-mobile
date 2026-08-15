@@ -47,7 +47,10 @@ spotly-mobile/
 ├── supabase/
 │   ├── migrations/          schema, views, RPCs, RLS, buildings reference data
 │   ├── seed.sql             local fake data — runs on `supabase db reset`
-│   └── functions/           *intended* — embed/ and search/ Edge Functions
+│   └── functions/           Deno Edge Functions
+│       ├── _shared/         embedding helper, auth guard, CORS — shared, never deployed
+│       ├── embed/           text → vector(1536)
+│       └── search/          *intended* — embeds a query, returns cards
 ├── docs/
 │   ├── DESIGN.md            the design system — tokens, type, components, patterns
 │   └── features/            one file per product feature
@@ -92,6 +95,10 @@ Note that view rows come back with every column nullable — Postgres cannot pro
 **`supabase/seed.sql`** — local fake data, applied automatically by `supabase db reset`. Spots, reviews, check-ins, favourites, one open report. It leaves `reviews.embedding` null on purpose: a fabricated vector ranks as a real match and makes the `min_similarity` threshold impossible to calibrate. Seeded reviews are invisible to search until something backfills real embeddings.
 
 **`supabase/functions/`** — Deno Edge Functions. `embed` turns review text into a vector; `search` embeds a query and returns cards. They are the only place the OpenAI key is allowed. Share one embedding helper so the two cannot drift.
+
+A folder prefixed `_` is skipped by the CLI rather than deployed as an endpoint, which is what lets `_shared/` sit here as a library. `embedding.ts` owns the model name and dimension count together, because drift between the two functions is silent — a query embedded by a different model still returns 1536 valid floats and still scores, so search degrades into ranking by noise without erroring anywhere. `auth.ts` holds the guard both functions run before spending an OpenAI call: `verify_jwt` at the gateway only proves the bearer is a JWT this project signed, and the anon key is one, shipped in the bundle. Resolving the token to a user is a separate step and not optional.
+
+This folder is Deno, not React Native. `tsconfig.json` excludes it and `eslint.config.js` ignores it — `Deno` is a global here, imports carry `.ts` extensions, and packages resolve through `npm:` specifiers, all of which the Expo toolchain reports as errors. Editors need the Deno extension scoped by `deno.enablePaths` in `.vscode/settings.json`; do not fix it by adding Deno types to the root tsconfig, which mixes the two runtimes.
 
 **`docs/`** — the spec. `PRODUCT.md` is the feature list; `features/` is the requirements for each one. Do not put implementation notes that belong in a feature doc here, and do not put screens in `docs/`.
 
