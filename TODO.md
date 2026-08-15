@@ -1,0 +1,3 @@
+- App Icon
+- Splashscreen
+- Haptics 

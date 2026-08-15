@@ -1,0 +1,11 @@
+{
+  "//": "Edge Functions run on Deno, not React Native. This scopes them to the Deno toolchain and keeps them out of the app's tsc run — the root tsconfig excludes this directory, which is why `Deno` and .ts import specifiers resolve here and nowhere else.",
+  "imports": {
+    "@shared/": "./_shared/"
+  },
+  "lint": {
+    "rules": {
+      "tags": ["recommended"]
+    }
+  }
+}

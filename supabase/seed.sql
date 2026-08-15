@@ -67,41 +67,11 @@ where u.email like '%@case.edu';
 -- ---------------------------------------------------------------------------
 -- Buildings
 -- ---------------------------------------------------------------------------
--- Coordinates are approximate campus positions, accurate to roughly a block.
--- Nothing reads them in v1 (they are here for closest-open-spot later), so they
--- are close enough to plot and not close enough to navigate by.
-
-insert into public.buildings (name, short_name, latitude, longitude) values
-  ('Kelvin Smith Library',                  'KSL',        41.5075, -81.6084),
-  ('Tinkham Veale University Center',       'Tink',       41.5079, -81.6071),
-  ('Sears think[box]',                      'think[box]', 41.5044, -81.6018),
-  ('Nord Hall',                             'Nord',       41.5024, -81.6058),
-  ('Olin Building',                         'Olin',       41.5019, -81.6062),
-  ('Glennan Building',                      'Glennan',    41.5022, -81.6049),
-  ('White Building',                        'White',      41.5029, -81.6051),
-  ('Wickenden Building',                    'Wickenden',  41.5027, -81.6042),
-  ('Bingham Building',                      'Bingham',    41.5031, -81.6038),
-  ('Rockefeller Building',                  'Rock',       41.5040, -81.6089),
-  ('Millis Science Center',                 'Millis',     41.5046, -81.6093),
-  ('Clapp Hall',                            'Clapp',      41.5049, -81.6097),
-  ('Yost Hall',                             'Yost',       41.5060, -81.6079),
-  ('Crawford Hall',                         'Crawford',   41.5066, -81.6082),
-  ('Sears Library Building',                'Sears',      41.5034, -81.6053),
-  ('Peter B. Lewis Building',               'PBL',        41.5093, -81.6086),
-  ('Wolstein Research Building',            'Wolstein',   41.5041, -81.6183),
-  ('Sheila and Eric Samson Pavilion',       'Samson',     41.5029, -81.6205),
-  ('Allen Memorial Medical Library',        'Allen',      41.5044, -81.6153),
-  ('Thwing Center',                         'Thwing',     41.5072, -81.6079),
-  ('Leutner Commons',                       'Leutner',    41.5136, -81.6058),
-  ('Fribley Commons',                       'Fribley',    41.5003, -81.6045),
-  ('Wade Commons',                          'Wade',       41.5129, -81.6067),
-  ('Mather House',                          'Mather',     41.5085, -81.6062),
-  ('Guilford House',                        'Guilford',   41.5081, -81.6056),
-  ('Adelbert Hall',                         'Adelbert',   41.5041, -81.6073),
-  ('Haydn Hall',                            'Haydn',      41.5084, -81.6051),
-  ('Harkness Chapel',                       'Harkness',   41.5087, -81.6047),
-  ('Kent Hale Smith Building',              'KHS',        41.5036, -81.6067),
-  ('Veale Convocation Center',              'Veale',      41.5122, -81.6041);
+-- Not here. Buildings are real campus reference data, not a dev fixture, so
+-- they ship in 20260814194500_buildings_reference_data.sql — a file this seed
+-- only joins against by `short_name`. They used to live here, which is why every
+-- hosted environment had an empty building picker: seed.sql runs on local
+-- `supabase db reset` and nowhere else.
 
 
 -- ---------------------------------------------------------------------------
@@ -127,7 +97,7 @@ from (values
   ('Sears',      'Rear reading room',              '{quiet,natural_light}'),
   ('Millis',     'Atrium tables',                  '{natural_light,lively,food_nearby}'),
   ('Clapp',      'Second floor bench nook',        '{quiet,natural_light}'),
-  ('Yost',       'Third floor seminar corner',     '{quiet,outlets,whiteboards}'),
+  ('Mather Memorial', 'Third floor seminar corner', '{quiet,outlets,whiteboards}'),
   ('Crawford',   'Ground floor commons',           '{group_tables,outlets,lively}'),
   ('PBL',        'Third floor glass overlook',     '{natural_light,quiet,outlets}'),
   ('PBL',        'Basement team rooms',            '{whiteboards,group_tables,outlets,open_late}'),
@@ -190,8 +160,8 @@ from (values
   ('Millis','Atrium tables','bmt204@case.edu','Bright, open, and there is coffee right there. Good for lighter reading or answering email. The acoustics mean every conversation in the building reaches you.',17,9),
   ('Millis','Atrium tables','cjd318@case.edu','Nice between organic chemistry lectures since you are already in the building. Not where you go to write a paper. Great where you go to not go home.',8,26),
   ('Clapp','Second floor bench nook','dnl427@case.edu','A window bench with a view of the quad that somehow stays empty. Quiet, warm in the afternoon sun. No table, so laptop on lap only.',14,15),
-  ('Yost','Third floor seminar corner','ekp539@case.edu','Quiet corner with a small whiteboard and reliable outlets, right outside the seminar rooms. Empty most afternoons. Gets used as overflow during department events.',11,12),
-  ('Yost','Third floor seminar corner','fhs642@case.edu','Underrated. Close to the humanities offices so it stays calm, and the chairs are actually good for long sessions. Nothing nearby if you get hungry.',9,29),
+  ('Mather Memorial','Third floor seminar corner','ekp539@case.edu','Quiet corner with a small whiteboard and reliable outlets, right outside the seminar rooms. Empty most afternoons. Gets used as overflow during department events.',11,12),
+  ('Mather Memorial','Third floor seminar corner','fhs642@case.edu','Underrated. Close to the humanities offices so it stays calm, and the chairs are actually good for long sessions. Nothing nearby if you get hungry.',9,29),
   ('Crawford','Ground floor commons','gwm755@case.edu','Big shared tables and a constant hum of people, good if silence makes you restless. Outlets are plentiful. Coffee line at ten is genuinely disruptive though.',19,6),
   ('Crawford','Ground floor commons','hly868@case.edu','My go to for group problem sets because nobody minds noise and there is always space. Lighting is harsh and there are no windows in the middle.',15,22),
   ('PBL','Third floor glass overlook','axr101@case.edu','Wall of glass, silent, and the architecture makes you feel like you should be doing something important. Business students dominate it during their exam weeks.',27,4),

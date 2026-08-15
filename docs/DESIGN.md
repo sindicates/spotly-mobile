@@ -45,14 +45,12 @@ Two details that look like style and are not:
 | `background` / `foreground` | The page and its default text |
 | `card` / `card-foreground` | Raised surfaces — review cards, list rows |
 | `popover` / `popover-foreground` | Overlays floating above the page |
-| `primary` / `primary-foreground` | The one action per screen that matters most |
+| `primary` / `primary-foreground` | The one action per screen that matters most. Colour: `#208AEF` |
 | `secondary` / `secondary-foreground` | Supporting actions, read-only chips |
 | `muted` / `muted-foreground` | Secondary text, absent data, disabled surfaces |
 | `accent` / `accent-foreground` | Selected filter chips, pressed states |
 | `destructive` | Report, delete, errors. Nothing else — it stays rare enough to mean something |
 | `border` / `input` / `ring` | Hairlines, field outlines, focus |
-
-`primary` is the blue already in `app.json` (`#208AEF`, the splash background), so the app opens into its own brand rather than jumping from a blue splash to a neutral home.
 
 ### Occupancy — the one semantic scale
 

@@ -45,7 +45,9 @@ from spots s
 join buildings b on b.id = s.building_id;
 ```
 
-**Seeding.** Target 20–30 spots with real reviews. A local script (service role key, bypasses Edge Functions and RPCs) upserts buildings, batch-embeds every review string in one OpenAI call, then inserts spots and reviews. Use a pool of 6–8 `.edu` seed accounts with `email_confirm: true` — `reviews` is unique on `(spot_id, author_id)`, so one account can only hold one review per spot. Seed 25–40 CWRU buildings first, including coordinates (unused in v1, needed later for closest-open-spot).
+**Seeding.** Target 20–30 spots with real reviews. A local script (service role key, bypasses Edge Functions and RPCs) batch-embeds every review string in one OpenAI call, then inserts spots and reviews. Use a pool of 6–8 `.edu` seed accounts with `email_confirm: true` — `reviews` is unique on `(spot_id, author_id)`, so one account can only hold one review per spot.
+
+**Buildings are not seed data.** ~~Seed 25–40 CWRU buildings first, including coordinates (unused in v1, needed later for closest-open-spot).~~ **Changed 2026-08-14.** Buildings ship as reference data in `20260814194500_buildings_reference_data.sql`, not in `seed.sql`. Building is a *required* field on the add-spot form (SPOT-5), so an empty table is not a thin catalog — it is a dead end, and `seed.sql` runs on local `supabase db reset` and nowhere else, which left every hosted environment with a picker that could not be used. 60 buildings, names and codes from the CWRU registrar, coordinates from OpenStreetMap footprint centroids. The insert is idempotent on `name`, so corrections propagate on re-run.
 
 ### Screens
 

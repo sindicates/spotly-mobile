@@ -45,7 +45,7 @@ spotly-mobile/
 │   │   └── theme.ts              design-token mirror for navigation chrome
 │   └── global.css                design tokens — the source of every colour
 ├── supabase/
-│   ├── migrations/          schema, views, RPCs, RLS
+│   ├── migrations/          schema, views, RPCs, RLS, buildings reference data
 │   ├── seed.sql             local fake data — runs on `supabase db reset`
 │   └── functions/           *intended* — embed/ and search/ Edge Functions
 ├── docs/
@@ -87,7 +87,9 @@ Note that view rows come back with every column nullable — Postgres cannot pro
 
 **`supabase/migrations/`** — the database. Tables, views (`public_reviews`, `public_spots`, `spot_occupancy`), definer RPCs, triggers, RLS. Clients never select `reviews`, `spots`, `check_ins`, or `reports` directly.
 
-**`supabase/seed.sql`** — local fake data, applied automatically by `supabase db reset`. Buildings, spots, reviews, check-ins, favourites, one open report. It leaves `reviews.embedding` null on purpose: a fabricated vector ranks as a real match and makes the `min_similarity` threshold impossible to calibrate. Seeded reviews are invisible to search until something backfills real embeddings.
+**Buildings are reference data, not seed data.** `buildings` is populated by a migration, so it is present in every environment. It is the one table holding real-world facts rather than rows users create, and it is a required field on the add-spot form — an empty `buildings` blocks the flow outright rather than degrading it. Fixtures that need a building join it by `short_name`.
+
+**`supabase/seed.sql`** — local fake data, applied automatically by `supabase db reset`. Spots, reviews, check-ins, favourites, one open report. It leaves `reviews.embedding` null on purpose: a fabricated vector ranks as a real match and makes the `min_similarity` threshold impossible to calibrate. Seeded reviews are invisible to search until something backfills real embeddings.
 
 **`supabase/functions/`** — Deno Edge Functions. `embed` turns review text into a vector; `search` embeds a query and returns cards. They are the only place the OpenAI key is allowed. Share one embedding helper so the two cannot drift.
 

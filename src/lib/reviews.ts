@@ -31,20 +31,74 @@ export function meetsWordFloor(body: string): boolean {
 }
 
 /**
- * REV-3. Turns review text into the vector stored beside it.
+ * REV-3 (revised 2026-08-14). Turns review text into the vector stored beside it.
  *
  * The Edge Function is the only place the OpenAI key exists — it is a function
  * secret, never an `EXPO_PUBLIC_` var — so embedding cannot happen on device.
  * `functions.invoke` attaches the caller's JWT, which is what the function
  * checks before spending a token budget on an anonymous request.
+ *
+ * Throws. Callers on the review write path want `tryEmbedReviewBody` instead —
+ * see the note there for why posting no longer depends on this succeeding.
  */
 export async function embedReviewBody(body: string): Promise<number[]> {
   const { data, error } = await supabase.functions.invoke<{ embedding: number[] }>('embed', {
     body: { input: body },
   });
-  if (error) throw new RequestError({ message: error.message });
+  if (error) throw new RequestError({ message: await functionErrorMessage(error) });
   if (!data?.embedding) throw new RequestError({ message: 'The review could not be indexed.' });
   return data.embedding;
+}
+
+/**
+ * The sentence the Edge Function actually sent, not supabase-js's summary of it.
+ *
+ * On any non-2xx, `FunctionsHttpError.message` is the fixed string "Edge Function
+ * returned a non-2xx code" — identical whether the function is undeployed, the
+ * OpenAI key is missing, or the caller is signed out. The real explanation is the
+ * `{ error }` body, reachable through `context`, which is the undrained
+ * `Response`. Reading it is the difference between a bug report that says what
+ * broke and one that says nothing.
+ */
+async function functionErrorMessage(error: Error): Promise<string> {
+  const response = (error as { context?: Response }).context;
+  if (!(response instanceof Response)) return error.message;
+  try {
+    const payload = (await response.clone().json()) as { error?: unknown };
+    if (typeof payload.error === 'string' && payload.error) return payload.error;
+  } catch {
+    // Non-JSON body (a gateway 404 for an undeployed function, say). Fall through
+    // to the status, which at least distinguishes the failures from each other.
+  }
+  return `${error.message} (HTTP ${response.status})`;
+}
+
+/**
+ * Embedding, best-effort. Returns null rather than throwing.
+ *
+ * REV-3 originally made embedding part of the write: no vector, no review. That
+ * coupling meant an unset `OPENAI_API_KEY` blocked *posting*, which the database
+ * never required — `reviews.embedding` is nullable and both write RPCs default
+ * `p_embedding` to null. Losing every contributed review because an index is not
+ * configured yet is the worse failure of the two, so the vector is now optional
+ * and search is what degrades.
+ *
+ * A review with a null embedding is invisible to `search_reviews`, which filters
+ * `embedding is not null` — the same state `seed.sql` deliberately leaves its
+ * rows in. It is not lost, just unindexed, and a backfill pass fixes it. Nothing
+ * here changes when the key is finally set: this starts returning vectors and
+ * new reviews are searchable immediately. Only the existing null rows need the
+ * backfill.
+ */
+export async function tryEmbedReviewBody(body: string): Promise<number[] | null> {
+  try {
+    return await embedReviewBody(body);
+  } catch (cause) {
+    // Loud in dev, harmless in production. Silence here would make "why is
+    // nothing searchable" an unanswerable question later.
+    console.warn('[spotly] review saved without an embedding:', (cause as Error).message);
+    return null;
+  }
 }
 
 /**
