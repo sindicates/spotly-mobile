@@ -39,6 +39,47 @@ export type Database = {
   }
   public: {
     Tables: {
+      building_images: {
+        Row: {
+          attribution: string | null
+          building_id: string
+          created_at: string
+          id: string
+          is_primary: boolean
+          license: string | null
+          source_url: string | null
+          storage_path: string
+        }
+        Insert: {
+          attribution?: string | null
+          building_id: string
+          created_at?: string
+          id?: string
+          is_primary?: boolean
+          license?: string | null
+          source_url?: string | null
+          storage_path: string
+        }
+        Update: {
+          attribution?: string | null
+          building_id?: string
+          created_at?: string
+          id?: string
+          is_primary?: boolean
+          license?: string | null
+          source_url?: string | null
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "building_images_building_id_fkey"
+            columns: ["building_id"]
+            isOneToOne: false
+            referencedRelation: "buildings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       buildings: {
         Row: {
           created_at: string
@@ -397,6 +438,9 @@ export type Database = {
           category: Database["public"]["Enums"]["spot_category"] | null
           created_at: string | null
           id: string | null
+          image_path: string | null
+          latitude: number | null
+          longitude: number | null
           review_count: number | null
         }
         Relationships: [
@@ -477,6 +521,7 @@ export type Database = {
           area_name: string
           body: string
           building: string
+          image_path: string
           occupancy: Database["public"]["Enums"]["occupancy_status"]
           reported_at: string
           review_count: number

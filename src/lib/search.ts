@@ -17,6 +17,7 @@ import type { AmenityTag } from '@/lib/amenities';
 import { toOccupancyReading } from '@/lib/occupancy';
 import type { OccupancyStatus } from '@/lib/occupancy';
 import type { SpotReviewCard } from '@/lib/reviews';
+import { buildingImageUrl } from '@/lib/spots';
 import { functionErrorMessage, RequestError, supabase } from '@/lib/supabase';
 
 /**
@@ -49,6 +50,8 @@ type SearchReviewRow = {
   occupancy: OccupancyStatus | null;
   /** Null with `occupancy`; the two are set together or not at all. */
   reported_at: string | null;
+  /** Null when the building has no seeded photo (REV-12). */
+  image_path: string | null;
 };
 
 /**
@@ -91,5 +94,6 @@ export async function searchReviews(
     // together or not at all. `toOccupancyReading` is what keeps a status with
     // no timestamp behind it unrepresentable (OCC-4).
     occupancy: toOccupancyReading(row.occupancy, row.reported_at),
+    imageUrl: buildingImageUrl(row.image_path),
   }));
 }

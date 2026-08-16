@@ -34,6 +34,7 @@ Screens live in the Figma file `rR0AeRDO12FR0J2UYQ1MzS`, page `2:53`.
 | 11 | Favourites | `5:191` | `(app)/(tabs)/favorites` |
 | 12 | Report sheet | `5:215` | modal, **not a route** |
 | 13 | Content policy | `5:239` | static screen |
+| 14 | Map | *pending — Figma MCP rate-limited; spec is in nearby-map.md* | `(app)/(tabs)/map` |
 
 ```
 get_metadata fileKey=rR0AeRDO12FR0J2UYQ1MzS nodeId=<node>
@@ -49,7 +50,7 @@ This returns the bullet spec as text-node names — the fastest path to the requ
 
 Every bullet in a frame ends in a requirement ID. Follow it:
 
-`AUTH-*` → `docs/features/authentication.md` · `ONB-*` → `onboarding.md` · `SPOT-*` → `spot-catalog.md` · `SEARCH-*` → `semantic-search.md` · `REV-*` → `reviews.md` · `OCC-*` → `occupancy.md` · `AMEN-*` → `amenity-tags.md` · `FAV-*` → `favorites.md` · `MOD-*` → `reporting.md`
+`AUTH-*` → `docs/features/authentication.md` · `ONB-*` → `onboarding.md` · `SPOT-*` → `spot-catalog.md` · `SEARCH-*` → `semantic-search.md` · `REV-*` → `reviews.md` · `OCC-*` → `occupancy.md` · `AMEN-*` → `amenity-tags.md` · `FAV-*` → `favorites.md` · `MAP-*` → `nearby-map.md` · `MOD-*` → `reporting.md`
 
 Each doc has a **Rationale** section explaining why the decision was made. Read it. Most of these choices are not obvious from the code, and several are deliberate reversals of the obvious approach.
 

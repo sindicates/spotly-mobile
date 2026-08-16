@@ -53,7 +53,14 @@ function RootNavigator() {
   if (loading) return null;
 
   return (
-    <Stack screenOptions={{ headerShown: false }}>
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        // Chevron only — iOS otherwise paints the previous route name on the
+        // back button ("Home", "(tabs)", the spot area). That reads as a
+        // second title, not a back control.
+        headerBackButtonDisplayMode: 'minimal',
+      }}>
       {/*
         Children of a false guard are filtered out of the navigator entirely and
         the router falls back to the first screen still standing, in declaration
@@ -75,10 +82,10 @@ function RootNavigator() {
 
       {/*
         The native tab bar is the root of the app stack and headerless — each of
-        its three screens owns its own top bar. Everything else is pushed on top
+        its four screens owns its own top bar. Everything else is pushed on top
         of the whole tab navigator with a native header, so a detail screen
         covers the tab bar rather than sitting inside one tab's history: the spot
-        page is reached from all three tabs and belongs to none of them. The
+        page is reached from all four tabs and belongs to none of them. The
         header is where the back button and the top inset come from; those
         screens render under it with `edges` dropping `top`. The spot page sets
         its own title from the loaded area name.

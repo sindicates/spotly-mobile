@@ -4,13 +4,13 @@ import { useColorScheme } from 'nativewind';
 import { THEME } from '@/lib/theme';
 
 /**
- * The three places you can be in Spotly: the feed, a search, your saved spots.
+ * The four places you can be in Spotly: the feed, a search, the map, your saved spots.
  *
  * `NativeTabs` renders the real platform tab bar — UITabBarController on iOS,
  * BottomNavigationView on Android — rather than a JS reimplementation of one.
  * That is what buys the system behaviours we would otherwise have to fake and
  * would get subtly wrong: the iOS 26 liquid-glass bar and its scroll-edge
- * translucency, tap-the-active-tab-to-scroll-to-top, VoiceOver's "tab 2 of 3",
+ * translucency, tap-the-active-tab-to-scroll-to-top, VoiceOver's "tab 2 of 4",
  * and the Dynamic Type / bold-text / reduce-motion settings, all for free.
  *
  * The trade is that this bar is native, so NativeWind cannot reach it. Colours
@@ -62,6 +62,14 @@ export default function TabsLayout() {
       <NativeTabs.Trigger name="search">
         <NativeTabs.Trigger.Icon sf="magnifyingglass" md="search" />
         <NativeTabs.Trigger.Label>Search</NativeTabs.Trigger.Label>
+      </NativeTabs.Trigger>
+
+      <NativeTabs.Trigger name="map">
+        <NativeTabs.Trigger.Icon
+          sf={{ default: 'map', selected: 'map.fill' }}
+          md="map"
+        />
+        <NativeTabs.Trigger.Label>Map</NativeTabs.Trigger.Label>
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="favorites">

@@ -55,7 +55,8 @@ returns table (
   area_name text, building text, amenity_tags amenity_tag[],
   review_count bigint,
   occupancy occupancy_status,   -- null = no recent report
-  reported_at timestamptz
+  reported_at timestamptz,
+  image_path text               -- null = no building photo yet (REV-12)
 )
 language sql stable security definer as $$
   with candidates as (
@@ -77,11 +78,13 @@ language sql stable security definer as $$
          s.area_name, bl.name, s.amenity_tags,
          (select count(*) from reviews r2
             where r2.spot_id = b.spot_id and not r2.hidden),
-         o.status, o.reported_at
+         o.status, o.reported_at,
+         img.storage_path
   from best_per_spot b
   join spots s        on s.id = b.spot_id
   join buildings bl   on bl.id = s.building_id
   left join spot_occupancy o on o.spot_id = b.spot_id
+  left join building_images img on img.building_id = bl.id and img.is_primary
   where b.similarity >= min_similarity
   order by b.similarity desc
   limit result_limit;
@@ -118,4 +121,4 @@ Biased toward recall deliberately. 56 reviews is a sparse space; on-topic querie
 
 ### Screen
 
-- `(app)/(tabs)/search` — vertical list of review cards, not a carousel. Each card: review body (truncated), spot name, building, occupancy pill, tag chips. Tap expands in place. Explicit empty state. The route is still `/search`; the tab group does not change the URL.
+- `(app)/(tabs)/search` — vertical list of review cards, not a carousel. Each card: building photo (REV-12), review body (truncated), spot name, building, occupancy pill, tag chips. Tap expands in place. Explicit empty state. The route is still `/search`; the tab group does not change the URL.

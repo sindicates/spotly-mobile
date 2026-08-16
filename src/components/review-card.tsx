@@ -1,5 +1,9 @@
+import { Image } from 'expo-image';
 import { FlagIcon } from 'lucide-react-native';
+import { cssInterop } from 'nativewind';
 import { Pressable, View, type StyleProp, type ViewStyle } from 'react-native';
+
+cssInterop(Image, { className: 'style' });
 
 import { AmenityChips } from '@/components/amenity-chip';
 import { OccupancyPill } from '@/components/occupancy-pill';
@@ -27,7 +31,8 @@ import { cn } from '@/lib/utils';
  * one tap means every glance costs a navigation.
  *
  * There is no author, no avatar, and no reviewer name anywhere in this component,
- * and there is no prop that could add one (REV-2). Anonymity is what makes blunt
+ * and there is no prop that could add one (REV-2). The image slot is the
+ * building's photo (REV-12), not a person. Anonymity is what makes blunt
  * reviews possible on a campus small enough that everyone is one degree apart.
  */
 
@@ -39,6 +44,12 @@ type ReviewCardProps = {
   tags?: readonly AmenityTag[];
   /** Shown as "4 reviews" when this card represents a spot in a list. */
   reviewCount?: number;
+  /**
+   * REV-12. The building's primary photo. Drawn only when `showSpotContext` is
+   * on — the spot-page carousel already has a hero two rows up. Null is a
+   * muted placeholder, never a photo of a different building.
+   */
+  imageUrl?: string | null;
   /**
    * Set false inside the spot page carousel, where the header two lines above
    * already names the spot and shows its pill. Repeating it on every card is
@@ -69,6 +80,7 @@ export function ReviewCard({
   occupancy,
   tags = [],
   reviewCount,
+  imageUrl = null,
   showSpotContext = true,
   expanded = false,
   onToggleExpand,
@@ -80,61 +92,79 @@ export function ReviewCard({
   return (
     <View
       style={style}
-      className={cn('border-border bg-card gap-3 rounded-lg border p-4', className)}>
-      <Pressable
-        onPress={() => {
-          if (!onToggleExpand) return;
-          selection();
-          onToggleExpand();
-        }}
-        accessibilityRole="button"
-        accessibilityLabel={expanded ? 'Collapse review' : 'Expand review'}>
-        <Text
-          className="text-card-foreground leading-6"
-          numberOfLines={expanded ? undefined : 4}>
-          {body}
-        </Text>
-      </Pressable>
-
+      className={cn('border-border bg-card overflow-hidden rounded-lg border', className)}>
       {showSpotContext ? (
-        <View className="gap-2">
-          <View className="flex-row items-center justify-between gap-3">
-            <View className="shrink gap-0.5">
-              <Text className="font-semibold">{areaName}</Text>
-              <Text variant="muted">
-                {building}
-                {typeof reviewCount === 'number'
-                  ? ` · ${reviewCount} ${reviewCount === 1 ? 'review' : 'reviews'}`
-                  : ''}
-              </Text>
+        imageUrl ? (
+          <Image
+            source={{ uri: imageUrl }}
+            className="bg-muted aspect-video w-full"
+            contentFit="cover"
+            accessibilityLabel={`${building} exterior`}
+          />
+        ) : (
+          <View
+            className="bg-muted aspect-video w-full"
+            accessibilityLabel={`${building}, no photo`}
+          />
+        )
+      ) : null}
+
+      <View className="gap-3 p-4">
+        <Pressable
+          onPress={() => {
+            if (!onToggleExpand) return;
+            selection();
+            onToggleExpand();
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={expanded ? 'Collapse review' : 'Expand review'}>
+          <Text
+            className="text-card-foreground leading-6"
+            numberOfLines={expanded ? undefined : 4}>
+            {body}
+          </Text>
+        </Pressable>
+
+        {showSpotContext ? (
+          <View className="gap-2">
+            <View className="flex-row items-center justify-between gap-3">
+              <View className="shrink gap-0.5">
+                <Text className="font-semibold">{areaName}</Text>
+                <Text variant="muted">
+                  {building}
+                  {typeof reviewCount === 'number'
+                    ? ` · ${reviewCount} ${reviewCount === 1 ? 'review' : 'reviews'}`
+                    : ''}
+                </Text>
+              </View>
+              <OccupancyPill reading={occupancy} size="sm" />
             </View>
-            <OccupancyPill reading={occupancy} size="sm" />
+
+            {tags.length > 0 ? <AmenityChips tags={tags} /> : null}
           </View>
+        ) : null}
 
-          {tags.length > 0 ? <AmenityChips tags={tags} /> : null}
-        </View>
-      ) : null}
-
-      {onOpenSpot || onReport ? (
-        <View className="flex-row items-center justify-between">
-          {onOpenSpot ? (
-            <Button variant="link" size="sm" className="px-0" onPress={onOpenSpot}>
-              <Text>Open spot</Text>
-            </Button>
-          ) : (
-            <View />
-          )}
-          {onReport ? (
-            <Button
-              variant="ghost"
-              size="icon"
-              onPress={onReport}
-              accessibilityLabel="Report this review">
-              <Icon as={FlagIcon} className="text-muted-foreground" size={16} />
-            </Button>
-          ) : null}
-        </View>
-      ) : null}
+        {onOpenSpot || onReport ? (
+          <View className="flex-row items-center justify-between">
+            {onOpenSpot ? (
+              <Button variant="link" size="sm" className="px-0" onPress={onOpenSpot}>
+                <Text>Open spot</Text>
+              </Button>
+            ) : (
+              <View />
+            )}
+            {onReport ? (
+              <Button
+                variant="ghost"
+                size="icon"
+                onPress={onReport}
+                accessibilityLabel="Report this review">
+                <Icon as={FlagIcon} className="text-muted-foreground" size={16} />
+              </Button>
+            ) : null}
+          </View>
+        ) : null}
+      </View>
     </View>
   );
 }

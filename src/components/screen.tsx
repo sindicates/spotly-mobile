@@ -15,7 +15,7 @@ import { cn } from '@/lib/utils';
  * action bar that should run to the edge, and drop `top` under a navigation
  * header that already handles the inset.
  *
- * The three tab screens drop `bottom` for a third reason: the native tab bar
+ * The four tab screens drop `bottom` for a third reason: the native tab bar
  * already sits in that inset and insets its own content — iOS adjusts the first
  * nested scroll view, Android wraps the screen. Adding the inset here as well
  * pads the list twice and leaves a dead band above the bar.

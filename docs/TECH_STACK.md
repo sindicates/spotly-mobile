@@ -20,7 +20,8 @@ Use `npx expo install` for anything React-Native-adjacent, never bare `npm insta
 | Embeddings | OpenAI `text-embedding-3-small` (1536 dims). Key lives only in Edge Function secrets. |
 | Session | `@supabase/supabase-js` + AsyncStorage. `detectSessionInUrl: false` — the web default breaks native. |
 | Local state | `react-native-mmkv` v4 (JSI/Nitro, synchronous). Per-install state only — currently just the onboarding flag. |
-| Location | `expo-location`, foreground only. Unused in v1 UI; wired so the dev build is proven. |
+| Location | `expo-location`, foreground only. Used by the Map tab (MAP-4). |
+| Maps | `react-native-maps`. Apple Maps on iOS (no key). Google Maps on Android needs a Maps SDK key for a device/store build. |
 | Haptics | `expo-haptics`. Screens call `src/lib/haptics.ts`; they never import the package. Web is a no-op. |
 | Build | EAS Build → custom development build. Internal distribution + TestFlight. |
 
@@ -40,7 +41,9 @@ Use `npx expo install` for anything React-Native-adjacent, never bare `npm insta
 
 MMKV v4 is Nitro-based: it needs `react-native-nitro-modules` (a peer dependency, pinned explicitly rather than left to npm's auto-peer-install) and a native rebuild. `new MMKV()` is gone in v4 — use the `createMMKV()` factory; `MMKV` is now a type-only export. On web the package resolves a `localStorage` implementation through platform extensions, but it throws during expo-router's Node prerender pass, so `storage.ts` falls back to an in-memory store when `window` is undefined. Same guard as `supabase.ts`, same reason.
 
-**Location.** `NSLocationWhenInUseUsageDescription` / Android fine+coarse are declared. v1 check-ins are trust-based (OCC-5) — the permission is in the binary so a later geo gate does not require a new native build. Do not show a location prompt until a screen actually needs the fix.
+**Location.** `NSLocationWhenInUseUsageDescription` / Android fine+coarse are declared. The Map tab is the screen that needs the fix — request permission there and nowhere else. Check-ins stay trust-based (OCC-5). Denied permission still shows the campus map; it does not block the tab (MAP-4).
+
+**Maps.** `react-native-maps`, not `expo-maps` (alpha). Apple Maps on iOS needs no key. Android Google Maps needs a Maps SDK key in the `react-native-maps` config plugin for a store or physical-device build; iPhone-first is enough to ship the tab. This is a native module — rebuild the dev client after install (`npx expo run:ios`).
 
 **Haptics.** `expo-haptics` talks to the Taptic Engine on iOS and the vibrator on Android. Android `VIBRATE` is added by the package. Intensity and when-to-fire live in `src/lib/haptics.ts` so a screen cannot pick a heavier impact than another. The helpers no-op on web (and therefore during Node prerender) and swallow failures — Low Power Mode and a user-disabled Taptic Engine must not break a press handler. There is no in-app toggle; the OS setting is enough.
 
@@ -101,6 +104,6 @@ Only `EXPO_PUBLIC_*` vars are inlined into the shipped bundle. They must be safe
 | `EXPO_PUBLIC_SUPABASE_URL` | `.env` (client) | Supabase client |
 | `EXPO_PUBLIC_SUPABASE_ANON_KEY` | `.env` (client) | Supabase client — the only key that belongs on-device |
 | `OPENAI_API_KEY` | `supabase secrets set` | Edge Functions `embed` and `search` |
-| `SUPABASE_SERVICE_ROLE_KEY` | local shell, never committed | Seed and backfill scripts (`db:embeddings`). Bypasses RLS. Must belong to the same stack as the URL above. |
+| `SUPABASE_SERVICE_ROLE_KEY` | local shell, never committed | Seed and backfill scripts (`db:embeddings`, `db:images`). Bypasses RLS. Must belong to the same stack as the URL above. |
 
 Never prefix a secret with `EXPO_PUBLIC_`.

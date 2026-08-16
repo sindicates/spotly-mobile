@@ -14,6 +14,20 @@ import { RequestError, supabase, unwrap } from '@/lib/supabase';
 
 import type { AmenityTag } from '@/lib/amenities';
 
+const BUILDING_IMAGES_BUCKET = 'building-images';
+
+/**
+ * REV-12. Turns a Storage path into the public URL expo-image loads.
+ *
+ * Null in, null out — a building with no seeded photo is a muted placeholder,
+ * never a guessed URL that would 404 or, worse, show the wrong building.
+ */
+export function buildingImageUrl(path: string | null | undefined): string | null {
+  if (!path) return null;
+  const { data } = supabase.storage.from(BUILDING_IMAGES_BUCKET).getPublicUrl(path);
+  return data.publicUrl;
+}
+
 /** The columns of `buildings` the picker needs. */
 export type Building = Pick<
   Database['public']['Tables']['buildings']['Row'],
@@ -30,6 +44,7 @@ type PublicSpotRow = Database['public']['Views']['public_spots']['Row'];
  * worst for all of them. These columns are `not null` on the base tables, so
  * asserting them here is accurate rather than a convenience cast. `building_short`
  * keeps its null because `buildings.short_name` genuinely is nullable.
+ * `imageUrl` is resolved from `image_path` and is null when there is no photo.
  */
 export type PublicSpot = {
   [K in 'id' | 'building_id' | 'building' | 'area_name' | 'amenity_tags' | 'review_count']-?: NonNullable<
@@ -37,7 +52,34 @@ export type PublicSpot = {
   >;
 } & {
   building_short: PublicSpotRow['building_short'];
+  /** REV-12. Null when this building has no seeded photo. */
+  imageUrl: string | null;
 };
+
+type PublicSpotSelect = Pick<
+  PublicSpotRow,
+  | 'id'
+  | 'building_id'
+  | 'building'
+  | 'building_short'
+  | 'area_name'
+  | 'amenity_tags'
+  | 'review_count'
+  | 'image_path'
+>;
+
+function toPublicSpot(row: PublicSpotSelect): PublicSpot {
+  return {
+    id: row.id as string,
+    building_id: row.building_id as string,
+    building: row.building as string,
+    area_name: row.area_name as string,
+    amenity_tags: (row.amenity_tags ?? []) as AmenityTag[],
+    review_count: row.review_count as number,
+    building_short: row.building_short,
+    imageUrl: buildingImageUrl(row.image_path),
+  };
+}
 
 export async function listBuildings(): Promise<Building[]> {
   return unwrap(
@@ -57,11 +99,11 @@ export async function getSpot(spotId: string): Promise<PublicSpot | null> {
   const row = unwrap(
     await supabase
       .from('public_spots')
-      .select('id, building_id, building, building_short, area_name, amenity_tags, review_count')
+      .select('id, building_id, building, building_short, area_name, amenity_tags, review_count, image_path')
       .eq('id', spotId)
       .maybeSingle()
   );
-  return row as PublicSpot | null;
+  return row ? toPublicSpot(row) : null;
 }
 
 /**
@@ -77,13 +119,13 @@ export async function listSpotsInBuilding(buildingId: string): Promise<PublicSpo
   const rows = unwrap(
     await supabase
       .from('public_spots')
-      .select('id, building_id, building, building_short, area_name, amenity_tags, review_count')
+      .select('id, building_id, building, building_short, area_name, amenity_tags, review_count, image_path')
       .eq('building_id', buildingId)
       .order('area_name')
   );
   // Narrowing the view's blanket nullability, as described on `PublicSpot`. The
   // underlying columns are `not null`; only the view loses that guarantee.
-  return rows as PublicSpot[];
+  return rows.map(toPublicSpot);
 }
 
 /** Loose substring match, for the inline "did you mean…" list. */

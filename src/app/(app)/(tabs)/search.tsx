@@ -120,6 +120,7 @@ export default function Search() {
             occupancy={item.occupancy}
             tags={item.tags}
             reviewCount={item.reviewCount}
+            imageUrl={item.imageUrl}
             expanded={interactions.isExpanded(item.reviewId)}
             onToggleExpand={() => interactions.toggleExpand(item.reviewId)}
             onOpenSpot={() => router.push(`/spot/${item.spotId}`)}
@@ -135,7 +136,10 @@ export default function Search() {
           ) : results.loading ? (
             <View className="gap-3">
               {[0, 1, 2].map((i) => (
-                <Skeleton key={i} className="h-40 w-full rounded-lg" />
+                <View key={i} className="overflow-hidden rounded-lg">
+                  <Skeleton className="aspect-video w-full" />
+                  <Skeleton className="h-32 w-full" />
+                </View>
               ))}
             </View>
           ) : results.error ? (

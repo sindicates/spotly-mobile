@@ -17,10 +17,11 @@ spotly-mobile/
 │   │   │   ├── survey.tsx
 │   │   │   └── first-review.tsx
 │   │   └── (app)/
-│   │       ├── (tabs)/           the native tab bar — the app's three destinations
+│   │       ├── (tabs)/           the native tab bar — the app's four destinations
 │   │       │   ├── _layout.tsx   NativeTabs, themed from lib/theme.ts
 │   │       │   ├── index.tsx     home — search-first, trending feed
 │   │       │   ├── search.tsx    results + SEARCH-4 empty state
+│   │       │   ├── map.tsx       nearby spots — campus map + distance list
 │   │       │   └── favorites.tsx
 │   │       ├── content-policy.tsx   MOD-3, linked from the review forms + report sheet
 │   │       ├── review/
@@ -38,6 +39,8 @@ spotly-mobile/
 │   │   ├── use-search.ts         semantic search results, keyed on query + tags
 │   │   ├── use-spot-detail.ts    spot page — spot, reviews, occupancy, favourite
 │   │   ├── use-favorites.ts      saved-spot list
+│   │   ├── use-map-spots.ts      catalog + occupancy for the map list
+│   │   ├── use-user-location.ts  one-shot GPS for the map tab (MAP-4)
 │   │   └── use-review-interactions.ts   expand + increment_expand + report-sheet state
 │   ├── lib/
 │   │   ├── supabase.ts           client, RequestError / unwrap, functionErrorMessage
@@ -54,6 +57,7 @@ spotly-mobile/
 │   │   ├── reporting.ts          report_review write (MOD-1)
 │   │   ├── amenities.ts          the eight tags
 │   │   ├── occupancy.ts          occupancy states, copy, check-in write, freshness
+│   │   ├── map.ts                nearby-map reads, haversine, pin grouping
 │   │   └── theme.ts              design-token mirror for navigation chrome
 │   └── global.css                design tokens — the source of every colour
 ├── supabase/
@@ -84,9 +88,9 @@ never leaves the app; the callback's does, so its path has to be literal.
 
 **`src/app/`** — one file per screen, nothing else. File-based routing. The three groups are the session gate: no session → `(auth)`, signed in but not onboarded → `(onboarding)`, otherwise `(app)`. The root `_layout` picks the group; it does not live in RLS.
 
-**`(app)/(tabs)/` is destinations; everything beside it is pushed over them.** The tab bar is the real platform one ([`NativeTabs`](https://docs.expo.dev/router/advanced/native-tabs/), alpha in SDK 57, hence the `unstable-native-tabs` import), and it holds the three places you can *be*: home, search, favourites. Spot detail, the two forms, and the content policy stay siblings of the group in the root stack, so they push over the whole navigator with a back button rather than into one tab's history — the spot page is reached from all three tabs and belongs to none of them. Adding a spot is an action, not a place, so it has no tab.
+**`(app)/(tabs)/` is destinations; everything beside it is pushed over them.** The tab bar is the real platform one ([`NativeTabs`](https://docs.expo.dev/router/advanced/native-tabs/), alpha in SDK 57, hence the `unstable-native-tabs` import), and it holds the four places you can *be*: home, search, map, favourites. Spot detail, the two forms, and the content policy stay siblings of the group in the root stack, so they push over the whole navigator with a back button rather than into one tab's history — the spot page is reached from all four tabs and belongs to none of them. Adding a spot is an action, not a place, so it has no tab.
 
-Group segments are stripped from URLs, so `/`, `/search`, and `/favorites` are unchanged by the move. What did change is lifetime: a tab screen mounts once and survives every visit, where a pushed screen remounted per visit. State seeded from params at mount is therefore only correct the first time — see the hand-off marker in `search.tsx`. Navigate between tabs with `router.navigate`, not `router.push`.
+Group segments are stripped from URLs, so `/`, `/search`, `/map`, and `/favorites` are unchanged by the move. What did change is lifetime: a tab screen mounts once and survives every visit, where a pushed screen remounted per visit. State seeded from params at mount is therefore only correct the first time — see the hand-off marker in `search.tsx`. Navigate between tabs with `router.navigate`, not `router.push`.
 
 **`src/components/`** — UI used on more than one screen. Review cards, occupancy pills, amenity chips, the report sheet. If it is a route, it does not belong here. `ui/` beneath it holds the React Native Reusables primitives, vendored as source rather than installed as a dependency — edit them for the whole app, never for one screen. See [`DESIGN.md`](DESIGN.md).
 
@@ -108,6 +112,8 @@ Note that view rows come back with every column nullable — Postgres cannot pro
 
 **Buildings are reference data, not seed data.** `buildings` is populated by a migration, so it is present in every environment. It is the one table holding real-world facts rather than rows users create, and it is a required field on the add-spot form — an empty `buildings` blocks the flow outright rather than degrading it. Fixtures that need a building join it by `short_name`.
 
+**Building photos are reference data too**, stored in `building_images` plus the `building-images` Storage bucket. Reviews inherit the building's primary photo (REV-12); they do not carry their own. Files are not in git — `npm run db:images` downloads Wikimedia Commons thumbs and uploads them. A building with no freely licensed photo stays `image_path = null`, and the card renders a muted placeholder rather than a photo of a different building.
+
 **`supabase/seed.sql`** — local fake data, applied automatically by `supabase db reset`. Spots, reviews, check-ins, favourites, one open report. It leaves `reviews.embedding` null on purpose: a fabricated vector ranks as a real match and makes the `min_similarity` threshold impossible to calibrate. Seeded reviews are invisible to search until `npm run db:embeddings` (`scripts/backfill-embeddings.mjs`) backfills real ones, so a reset is two commands.
 
 **`supabase/functions/`** — Deno Edge Functions. `embed` turns review text into a vector; `search` embeds a query and returns cards. They are the only place the OpenAI key is allowed. Share one embedding helper so the two cannot drift.
@@ -118,7 +124,7 @@ This folder is Deno, not React Native. `tsconfig.json` excludes it and `eslint.c
 
 **`scripts/`** — developer tooling, run by hand via `npm run`, never imported by the app. Plain `.mjs` on bare Node: `node:` builtins only, no dependencies, and `.env` parsed by hand rather than through `dotenv`. Reusing the app's `.env` is deliberate — it is what keeps a script and the app pointed at the same stack. Nothing here ships, which is why these are the only files allowed to hold the service-role key.
 
-`dev-token.mjs` mints a local-only JWT for `curl` and `dev-signin.mjs` drives the real magic-link flow at the simulator (both local-only by construction). `backfill-embeddings.mjs` and `calibrate-search.mjs` are the search pair: the first indexes the corpus, the second prints the similarity spread the `min_similarity` threshold is set from ([semantic-search.md](features/semantic-search.md)).
+`dev-token.mjs` mints a local-only JWT for `curl` and `dev-signin.mjs` drives the real magic-link flow at the simulator (both local-only by construction). `backfill-embeddings.mjs` and `calibrate-search.mjs` are the search pair: the first indexes the corpus, the second prints the similarity spread the `min_similarity` threshold is set from ([semantic-search.md](features/semantic-search.md)). `seed-building-images.mjs` fills the `building-images` bucket from the Wikimedia Commons manifest ([reviews.md](features/reviews.md), REV-12).
 
 **`docs/`** — the spec. `PRODUCT.md` is the feature list; `features/` is the requirements for each one. Do not put implementation notes that belong in a feature doc here, and do not put screens in `docs/`.
 

@@ -30,7 +30,9 @@ npx expo run:android
 
 These compile on your machine, install the dev client, and start Metro. Pass `--device` to pick a connected phone.
 
-Rerun one of these after pulling a change that adds a native module — `react-native-mmkv` is one, so a dev client built before it landed will crash on launch rather than fail gracefully. A JS-only change needs nothing but Metro.
+Rerun one of these after pulling a change that adds a native module — `react-native-mmkv` and `react-native-maps` are two, so a dev client built before they landed will crash on launch rather than fail gracefully. A JS-only change needs nothing but Metro.
+
+`react-native-maps` uses Apple Maps on iOS (no key). Android Google Maps needs a Maps SDK key in the `react-native-maps` config plugin for a physical-device or store build.
 
 ### EAS cloud builds
 
@@ -66,6 +68,7 @@ Schema lives in `supabase/migrations/`. Never edit the hosted schema by hand —
 ```bash
 npm run db:reset      # rebuild the local database and load supabase/seed.sql
 npm run db:embeddings # embed every review that has no vector yet
+npm run db:images     # download Wikimedia building photos into Storage
 npm run gen:types     # regenerate src/lib/database.types.ts from the linked project
 ```
 
@@ -75,7 +78,13 @@ as a real match and makes the search threshold impossible to calibrate — so
 commands, not one. It is safe to re-run: a second pass reports `0 remaining`,
 which is also how you confirm the first one finished.
 
-That script needs `SUPABASE_SERVICE_ROLE_KEY` and `OPENAI_API_KEY` from `.env`.
+`db:images` is the same kind of step for building photos (REV-12): the files
+are not in git, and a reset leaves `building_images` empty until the script
+runs. Buildings with no freely licensed Commons photo stay without one. Safe
+to re-run — existing objects are overwritten and rows upserted.
+
+Those scripts need `SUPABASE_SERVICE_ROLE_KEY` from `.env`. `db:embeddings`
+also needs `OPENAI_API_KEY`.
 The service-role key must belong to the same stack as `EXPO_PUBLIC_SUPABASE_URL`
 — point one at local and the other at hosted and PostgREST quietly falls back to
 `anon`, which was revoked on `reviews`, so the failure names a role you never

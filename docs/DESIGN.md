@@ -17,7 +17,7 @@ Build downward. If a layer below already solves it, do not solve it again above.
 | Spotly components | `src/components/` | Where product rules live. |
 | Screens | `src/app/` | Composition and data only. |
 
-**A product invariant is enforced by a component, not by remembering it.** `OccupancyPill` takes a reading or `null` and has no `lastKnownStatus` prop, so the stale badge OCC-4 forbids is unrepresentable rather than merely discouraged. `ReviewCard` has no author prop and no avatar slot (REV-2). When you add a feature with a rule attached, ask what API makes breaking it impossible, and build that.
+**A product invariant is enforced by a component, not by remembering it.** `OccupancyPill` takes a reading or `null` and has no `lastKnownStatus` prop, so the stale badge OCC-4 forbids is unrepresentable rather than merely discouraged. `ReviewCard` has no author prop and no avatar slot (REV-2). The image it does take is `imageUrl` — the building's photo, not a person (REV-12). When you add a feature with a rule attached, ask what API makes breaking it impossible, and build that.
 
 ---
 
@@ -133,7 +133,7 @@ Three with sharp edges:
 | `CheckInControl` | OCC-1, OCC-6 — three buttons, no confirm step. Rate limiting is a DB trigger; this renders the server's message |
 | `AmenityChips` | AMEN-2 — read-only, never pressable. Tags lock after the first reviewer |
 | `AmenityFilterChips` | AMEN-3 — selection is a hard constraint on search, never a ranking weight |
-| `ReviewCard` | REV-2, REV-5, SEARCH-2 — no author, tap expands in place, a separate control navigates |
+| `ReviewCard` | REV-2, REV-5, REV-12, SEARCH-2 — no author, no avatar, tap expands in place, a separate control navigates. The cover photo is the building's, shown only when `showSpotContext` is on |
 | `ReviewCarousel` | REV-4 — the one horizontal deck in the app (SPOT-4's single exception). Wraps `ReviewCard` with `showSpotContext` off rather than defining a second review surface |
 | `ReviewBodyField` | REV-10, REV-11 — the prompt and the 15-word counter, in one place |
 | `EmptyState` | SEARCH-4 — title, description, action |
@@ -150,12 +150,13 @@ Build a new component when a rule needs enforcing, or when the same composition 
 
 ### Navigation
 
-Three destinations, in a **native tab bar** — `NativeTabs` from `expo-router/unstable-native-tabs`, which renders UITabBarController on iOS and BottomNavigationView on Android rather than a JS lookalike.
+Four destinations, in a **native tab bar** — `NativeTabs` from `expo-router/unstable-native-tabs`, which renders UITabBarController on iOS and BottomNavigationView on Android rather than a JS lookalike.
 
 | Tab | Route | SF Symbol / Material Symbol |
 | --- | --- | --- |
 | Home | `(app)/(tabs)/index` | `house` / `home` |
 | Search | `(app)/(tabs)/search` | `magnifyingglass` / `search` |
+| Map | `(app)/(tabs)/map` | `map` / `map` |
 | Favourites | `(app)/(tabs)/favorites` | `heart` / `favorite_border` |
 
 The tab bar is the only surface that uses the **platform's** icon set instead of Lucide. Matching the OS beats matching the app here, it costs nothing to ship, and both sets carry a filled variant for the selected state — so selection is legible without leaning on the tint alone.
@@ -168,6 +169,8 @@ Two consequences for screens:
 - **Tab screens drop the `bottom` safe-area edge.** The tab bar already sits in that inset and insets its own content; adding it again pads the list twice.
 
 Anything pushed on top — spot detail, the two forms, the content policy — keeps its native header and covers the tab bar. A destination gets a tab; an action does not, which is why "Add a spot" stays a button on home.
+
+The back control is the chevron only (`headerBackButtonDisplayMode: 'minimal'`). Do not show the previous route name on the button — it reads as a second title.
 
 ### The four states
 

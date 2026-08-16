@@ -12,6 +12,16 @@ import type { AmenityTag } from '@/lib/amenities';
 import { toOccupancyReading, type OccupancyReading } from '@/lib/occupancy';
 import { functionErrorMessage, RequestError, supabase, unwrap } from '@/lib/supabase';
 
+/**
+ * REV-12. Same resolution as `buildingImageUrl` in spots.ts — kept here so this
+ * module does not import spots.ts (spots already imports this file for the
+ * add-spot write).
+ */
+function reviewCardImageUrl(path: string | null | undefined): string | null {
+  if (!path) return null;
+  return supabase.storage.from('building-images').getPublicUrl(path).data.publicUrl;
+}
+
 /** REV-10. Mirrored by a check constraint; do not lower one without the other. */
 export const REVIEW_WORD_FLOOR = 15;
 
@@ -153,6 +163,8 @@ export type SpotReviewCard = {
   tags: AmenityTag[];
   reviewCount: number;
   occupancy: OccupancyReading;
+  /** REV-12. The building's primary photo; null when none is seeded. */
+  imageUrl: string | null;
 };
 
 /** One spot's own reviews, for the carousel on the spot page. */
@@ -231,7 +243,7 @@ async function joinSpotContext(
   const [spots, occupancy] = await Promise.all([
     supabase
       .from('public_spots')
-      .select('id, area_name, building, amenity_tags, review_count')
+      .select('id, area_name, building, amenity_tags, review_count, image_path')
       .in('id', spotIds)
       .then(unwrap),
     supabase
@@ -260,6 +272,7 @@ async function joinSpotContext(
       tags: spot.amenity_tags ?? [],
       reviewCount: spot.review_count ?? 0,
       occupancy: toOccupancyReading(occ?.status, occ?.reported_at),
+      imageUrl: reviewCardImageUrl(spot.image_path),
     });
   }
   return cards;

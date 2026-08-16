@@ -11,7 +11,7 @@ Related: [reviews](reviews.md) · [amenity tags](amenity-tags.md) · [architectu
 | ID | Requirement |
 | --- | --- |
 | SPOT-1 | Every spot is a study spot in v1, so there is no category browse. Home is search-first, with a trending review feed beneath the search bar. `category` stays in the schema, single-valued, so dining and hangout need data entry rather than a migration. |
-| SPOT-2 | A spot page shows building and area name, amenity tags, current occupancy status with the check-in control, and its review carousel. |
+| SPOT-2 | A spot page shows building and area name, the building's primary photo once as a hero, amenity tags, current occupancy status with the check-in control, and its review carousel. The photo is not repeated on every carousel card. |
 | SPOT-3 | Any authenticated user can create a spot that isn't listed yet, supplying building, area name, amenity tags, and a first review. |
 | SPOT-4 | Search results render as a standard vertical list, not a card deck. The review carousel (REV-4) is the one deliberate exception. |
 | SPOT-5 | Adding a spot uses a structured form, not free text: building (select), area name (text), amenity tags (multi-select), first review (required). No category field — v1 is study-only. No building → sub-spot hierarchy; spots stay flat with building as an attribute. |
@@ -40,10 +40,15 @@ select
   s.id, s.building_id, b.name as building, b.short_name as building_short,
   s.area_name, s.category, s.amenity_tags, s.created_at,
   (select count(*) from reviews r
-    where r.spot_id = s.id and not r.hidden) as review_count
+    where r.spot_id = s.id and not r.hidden) as review_count,
+  b.latitude, b.longitude,
+  img.storage_path as image_path
 from spots s
-join buildings b on b.id = s.building_id;
+join buildings b on b.id = s.building_id
+left join building_images img on img.building_id = b.id and img.is_primary;
 ```
+
+`latitude` / `longitude` are the building's OSM centroid, projected so the [nearby map](nearby-map.md) does not join `buildings` itself. Other screens ignore them. `image_path` is the primary `building_images` row (REV-12); null is a valid "no photo yet."
 
 **Seeding.** Target 20–30 spots with real reviews. A local script (service role key, bypasses Edge Functions and RPCs) batch-embeds every review string in one OpenAI call, then inserts spots and reviews. Use a pool of 6–8 `.edu` seed accounts with `email_confirm: true` — `reviews` is unique on `(spot_id, author_id)`, so one account can only hold one review per spot.
 
@@ -52,7 +57,7 @@ join buildings b on b.id = s.building_id;
 ### Screens
 
 - `(app)/index` — search bar up top, amenity filter chips below it, then a trending review feed ordered by `trending_score`. Doubles as the thin-catalog answer: a small catalog reads as a fresh feed, not an empty grid.
-- `(app)/spot/[id]` — name and building; occupancy pill with the three check-in buttons; amenity tag chips; review carousel; review count; favorite toggle; "Add your review" hidden if `is_mine` is already true.
+- `(app)/spot/[id]` — name and building; building photo hero (SPOT-2 / REV-12); occupancy pill with the three check-in buttons; amenity tag chips; review carousel; review count; favorite toggle; "Add your review" hidden if `is_mine` is already true.
 - `(app)/spot/new` — the structured form:
 
 | Field | Control | Rule |

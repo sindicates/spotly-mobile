@@ -18,11 +18,11 @@ tables carry them — `spots.created_by`, `reviews.author_id`, `check_ins.author
 
 | Clients read through | Clients write through | Clients touch directly |
 | --- | --- | --- |
-| the three `public_*` **views** | the `security definer` **RPCs** | `buildings`, `profiles`, `favorites`, `survey_responses` |
+| the three `public_*` **views** | the `security definer` **RPCs** | `buildings`, `building_images`, `profiles`, `favorites`, `survey_responses` |
 
 - **Views** are the read surface: they project away every account ID, so a leak is impossible by construction rather than by discipline.
 - **RPCs** are the write surface: each derives the author from `auth.uid()` internally, so a client cannot attribute a row to someone else — there is no argument to try.
-- The four **direct-access tables** hold no cross-account data: a building is public reference data, and a profile / favorite / survey row is only ever the caller's own, guarded by self-only RLS.
+- The **direct-access tables** hold no cross-account data: a building (and its photos) is public reference data, and a profile / favorite / survey row is only ever the caller's own, guarded by self-only RLS. Cards read `image_path` through `public_spots` / `search_reviews`; they do not need a second join onto `building_images`.
 
 Base tables `spots`, `reviews`, `check_ins`, `reports` are **fully revoked** from
 `anon` and `authenticated`, and their RLS has zero policies — so even a mistaken
@@ -53,13 +53,14 @@ Plus the standard Supabase default set (`pgcrypto`, `pg_graphql`, `pg_stat_state
 
 ## Tables
 
-All eight have RLS **enabled**. "Grants" is what `authenticated` holds; `anon` holds
+All nine have RLS **enabled**. "Grants" is what `authenticated` holds; `anon` holds
 nothing on any of them.
 
 | Table | Grants (authenticated) | RLS policies | Purpose |
 | --- | --- | --- | --- |
 | `profiles` | select, update | self-only (`id = auth.uid()`) | AUTH-3 account record: id + FK to `auth.users`. Rows created by trigger, removed by cascade. |
 | `buildings` | select | select all (`true`) | Reference data — 60 CWRU buildings. The only table read directly with no self-scope; holds no account id. |
+| `building_images` | select | select all (`true`) | Team-seeded building photos (REV-12). Same access model as `buildings`. No client writes. |
 | `spots` | **none (revoked)** | none | Catalog entries. Read via `public_spots`, written via `create_spot_with_review`. |
 | `reviews` | **none (revoked)** | none | Anonymous reviews + embeddings. Read via `public_reviews` / `search_reviews`, written via `create_review` / `update_review`. |
 | `check_ins` | **none (revoked)** | none | Occupancy reports. Read via `spot_occupancy`, written via `create_check_in`. |
@@ -69,6 +70,7 @@ nothing on any of them.
 
 ### Key columns & constraints
 
+- **`building_images`** — `building_id` (FK, cascade), `storage_path`, `is_primary`, `source_url`, `license`, `attribution`. Partial unique index: at most one primary per building. Files live in the `building-images` Storage bucket.
 - **`spots`** — `building_id` (FK, `on delete restrict`), `area_name`, `category` (default `study`), `amenity_tags amenity_tag[]` (write-once, AMEN-2), `created_by` (FK profiles, `on delete set null`).
 - **`reviews`** — `spot_id` (FK, cascade), `author_id` (FK, set null), `body`, `embedding vector(1536)` (nullable — embedded in a second step; null = unindexed, invisible to search), `expand_count` (REV-6 engagement), `hidden` (MOD-4 moderation flag), `created_at` / `updated_at`.
 - **`check_ins`** — `spot_id`, `author_id`, `status occupancy_status`, `created_at`.
@@ -78,6 +80,7 @@ nothing on any of them.
 
 | Index | On | Why |
 | --- | --- | --- |
+| `building_images_one_primary` (unique, partial) | `building_images (building_id) where is_primary` | REV-12 — one cover photo per building. |
 | `spots_building_area_uniq` (unique) | `spots (building_id, lower(btrim(area_name)))` | SPOT-5 duplicate guard — case/whitespace-insensitive. |
 | `spots_amenity_tags_gin` (GIN) | `spots (amenity_tags)` | AMEN-3 / SEARCH-3 hard filter (`@>`). |
 | `reviews_spot_author_uniq` (unique) | `reviews (spot_id, author_id)` | REV-1 — one review per person per spot. |
@@ -96,7 +99,7 @@ account id.
 
 | View | Feature | Shape |
 | --- | --- | --- |
-| `public_spots` | [spot-catalog](../features/spot-catalog.md) | Spot + building name + live `review_count`. Omits `created_by`. |
+| `public_spots` | [spot-catalog](../features/spot-catalog.md) · [nearby-map](../features/nearby-map.md) · [reviews](../features/reviews.md) | Spot + building name + live `review_count` + building `latitude` / `longitude` + primary `image_path`. Omits `created_by`. |
 | `public_reviews` | [reviews](../features/reviews.md) | Review body + `expand_count`, `is_mine` (the only thing derived from `author_id`, collapsed to a boolean about the caller), and `trending_score` (a column because PostgREST can't order by an expression, REV-6). Excludes `hidden` rows. |
 | `spot_occupancy` | [occupancy](../features/occupancy.md) | `distinct on (spot_id)` most recent check-in **within 60 minutes**. OCC-4 lives in the WHERE clause: a stale row doesn't exist, so a spot absent from the view has no recent report. |
 
@@ -176,16 +179,19 @@ resolved the caller.
 
 ---
 
+## Storage
+
+One public bucket, `building-images`. Campus photos are reference data, not user content — the same reason `buildings` is readable without a self-scope. Clients resolve a path with `storage.from('building-images').getPublicUrl(...)`. Authenticated can select objects; nobody but the service-role seed script writes. Accounts still have no avatars (AUTH-3, REV-2).
+
 ## Not used
 
-- **Storage** — no buckets. Spots have no photos (SPOT-2) and accounts no avatars (AUTH-3, REV-2), so there is nothing to store.
 - **Realtime** — not enabled. Occupancy is pull-on-view, not a live subscription.
 
 ---
 
 ## Migrations
 
-Nine, all applied to the remote (verified via `supabase migration list`).
+Twelve, all applied to the remote (verified via `supabase migration list`).
 
 | Timestamp | Name | Produces |
 | --- | --- | --- |
@@ -198,6 +204,9 @@ Nine, all applied to the remote (verified via `supabase migration list`).
 | `20260814061500` | survey_responses | `survey_responses` (ONB-6). |
 | `20260814194500` | buildings_reference_data | 60 CWRU buildings (idempotent on `name`). |
 | `20260814220000` | service_role_embedding_backfill | Grants `service_role` `select(id, body, embedding)` + `update(embedding)` on `reviews` so a backfill can index seeded reviews. |
+| `20260815030300` | search_min_similarity | `search_reviews` similarity floor (SEARCH-4). |
+| `20260816010000` | public_spots_coords | Projects `buildings.latitude` / `longitude` onto `public_spots` (MAP-1). |
+| `20260817010000` | building_images | `building_images` table, `building-images` bucket, `image_path` on `public_spots` and `search_reviews` (REV-12). |
 
 Regenerate types after any migration: `npm run gen:types`.
 
@@ -206,6 +215,7 @@ Regenerate types after any migration: `npm run gen:types`.
 ## Seed & reference data
 
 - **`buildings` is reference data, not seed** — populated by migration `20260814194500`, so it's present in every environment (60 rows). It's a required field on the add-spot form, so an empty table is a dead end, not a thin catalog.
+- **`building_images` is reference data too**, but the files live in Storage, not in git. `npm run db:images` (`scripts/seed-building-images.mjs`) downloads Wikimedia Commons thumbs, uploads them, and upserts the rows. Buildings with no freely licensed photo stay `image_path = null`.
 - **`supabase/seed.sql`** — local fake data (spots, reviews, check-ins, favourites, one open report), applied only by `supabase db reset`. It leaves `reviews.embedding` **null on purpose**: a fabricated vector ranks as a real match and makes `min_similarity` impossible to calibrate. Seeded reviews are invisible to `search_reviews` until a backfill indexes them (the grant migration above is what lets that run).
 
 ---

@@ -1,6 +1,6 @@
 # Reviews
 
-**IDs:** REV-1..11
+**IDs:** REV-1..12
 
 Related: [spot catalog](spot-catalog.md) · [semantic search](semantic-search.md) · [reporting](reporting.md)
 
@@ -21,6 +21,7 @@ Related: [spot catalog](spot-catalog.md) · [semantic search](semantic-search.md
 | REV-9 | Moot — there are no ratings to break out by dimension. Amenity tags carry the entire structured signal. |
 | REV-10 | Review text has a **15-word floor**, enforced in the database as well as the form. A one-line review is the failure mode that makes the whole corpus useless — both for reading and for the embedding index. |
 | REV-11 | The review field is a single prompt: *"What's it good for, and what's the catch?"* Asking for the catch is what produces the honest half most review products never get. |
+| REV-12 | A review card in a list (home feed, search) shows the associated building's primary photo. Reviews have no `image_id`; the join is `review → spot → building → primary building_image`. A missing photo is a muted placeholder — never a photo of a different building. |
 
 **Acceptance:** A student can skim a spot's reviews by swiping, expand any that look relevant, and see recent useful reviews before old ones.
 
@@ -50,6 +51,8 @@ where r.hidden = false;
 
 Engagement is expand count, not votes. At launch volume an explicit-vote signal would be almost entirely zeros, collapsing trending order into pure recency.
 
+**Building photos (REV-12):** Reviews do not carry their own images and there is no camera. A card inherits the building's primary photo from `building_images`, the same way it inherits the building name. That is what keeps a photo from becoming an identity signal (REV-2) and what keeps two reviews of spots in the same building from showing different pictures of it. The spot-page carousel omits the photo — the page already shows it once as a hero (SPOT-2).
+
 ---
 
 ## Implementation
@@ -62,8 +65,11 @@ Write path: client → `embed` Edge Function (`POST /functions/v1/embed`, JWT re
 
 Trending formula lives in `public_reviews.trending_score` — change weights in the view, not client code. Debounce `increment_expand` to once per review per session.
 
+Building photos live in `building_images` + the `building-images` Storage bucket. `public_spots.image_path` and `search_reviews.image_path` project the primary row so the feed and search stay the same number of round trips. Seed with `npm run db:images`.
+
 ### Screens
 
-- Spot detail carousel — horizontal swipe, tap-to-expand, trending order.
+- Home feed and search — review cards with the building photo on top (REV-12).
+- Spot detail carousel — horizontal swipe, tap-to-expand, trending order. No photo on the cards; the page hero is the one image.
 - `(app)/review/new` — body field only. Building, spot, and tags are already fixed. Hidden when `is_mine` is already true on that spot.
 - Review form prompt and 15-word live counter: [spot catalog](spot-catalog.md).

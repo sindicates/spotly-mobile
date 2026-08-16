@@ -1,7 +1,11 @@
+import { Image } from 'expo-image';
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { HeartIcon } from 'lucide-react-native';
+import { cssInterop } from 'nativewind';
 import { useCallback, useRef, useState } from 'react';
 import { ScrollView, View } from 'react-native';
+
+cssInterop(Image, { className: 'style' });
 
 import { AmenityChips } from '@/components/amenity-chip';
 import { CheckInControl } from '@/components/check-in-control';
@@ -21,8 +25,8 @@ import { checkIn, isRateLimitError, type OccupancyReading, type OccupancyStatus 
 import { errorMessage } from '@/lib/utils';
 
 /**
- * SPOT-2. A spot page: name and building, live occupancy with the check-in
- * control, amenity tags, and the review carousel.
+ * SPOT-2. A spot page: name and building, the building photo once as a hero,
+ * live occupancy with the check-in control, amenity tags, and the review carousel.
  *
  * Writes here update local state from their own result rather than refetching
  * the whole page — a check-in returns the reading it produced (OCC), a favourite
@@ -102,6 +106,7 @@ export default function SpotDetail() {
         <Stack.Screen options={{ title: '' }} />
         <View className="gap-6 px-5 py-4">
           <Skeleton className="h-6 w-40" />
+          <Skeleton className="aspect-video w-full rounded-lg" />
           <Skeleton className="h-16 w-full rounded-lg" />
           <Skeleton className="h-56 w-full rounded-lg" />
         </View>
@@ -177,6 +182,20 @@ export default function SpotDetail() {
             {` · ${spot.review_count} ${spot.review_count === 1 ? 'review' : 'reviews'}`}
           </Text>
         </View>
+
+        {spot.imageUrl ? (
+          <Image
+            source={{ uri: spot.imageUrl }}
+            className="bg-muted aspect-video w-full rounded-lg"
+            contentFit="cover"
+            accessibilityLabel={`${spot.building} exterior`}
+          />
+        ) : (
+          <View
+            className="bg-muted aspect-video w-full rounded-lg"
+            accessibilityLabel={`${spot.building}, no photo`}
+          />
+        )}
 
         {/* Occupancy: the live pill and the two-tap check-in (OCC-1). */}
         <View className="gap-3">
