@@ -30,7 +30,7 @@ Requirements, not preferences. Breaking one is a bug even if it builds.
 
 - **Account IDs never reach the client.** Read through `public_reviews` / `public_spots` / `spot_occupancy`; write through `security definer` RPCs that set the author from `auth.uid()`. Clients get no direct select on `reviews`, `spots`, `check_ins`, `reports`. ([authentication.md](docs/features/authentication.md))
 - **Occupancy is never stale.** No recent check-in means "no recent reports" — never a last-known status or "last seen N hours ago". ([occupancy.md](docs/features/occupancy.md))
-- **Search returns one review card per spot**, ranked by that spot's best-matching review, with an explicit empty state below the similarity threshold. ([semantic-search.md](docs/features/semantic-search.md))
+- **Search returns one review card per spot**, ranked by that spot's best-*satisfying* review — judged before the dedupe, so a review that contradicts the query is dropped rather than ranked. The empty state is that judgement, not a similarity threshold; the calibrated floor still owns it when the judge is unreachable. ([semantic-search.md](docs/features/semantic-search.md))
 - **Amenity tags are write-once**, set by the first reviewer. No tag edit surface. ([amenity-tags.md](docs/features/amenity-tags.md))
 - **One review per person per spot**, enforced by a unique constraint. ([reviews.md](docs/features/reviews.md))
 

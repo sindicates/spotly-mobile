@@ -119,7 +119,8 @@ All `security definer`, `set search_path = ''`, derive the author from
 | `increment_expand` | `(review_id)` → `void` | REV-5/6 — trending signal; no server-side dedupe. |
 | `create_check_in` | `(spot_id, status)` → `timestamptz` | OCC-1 — returns the timestamp so the pill updates without a refetch. |
 | `report_review` | `(review_id, reason?)` → `uuid` | MOD-1 — upserts on `(review_id, reporter_id)`. |
-| `search_reviews` | `(query_embedding, filter_tags?, candidate_pool?, result_limit?, min_similarity?)` → table of cards | SEARCH-1..4 — pgvector scan, one card per spot, `min_similarity` **is** the empty state. Called by the `search` Edge Function. |
+| `search_reviews` | `(query_embedding, filter_tags?, candidate_pool?, result_limit?, min_similarity?)` → table of cards | SEARCH-1..4 — pgvector scan, one card per spot, cut at `min_similarity`. **No longer called by the app** as of SEARCH-5; kept installed for `calibrate-search.mjs`, the before/after column in `calibrate-rerank.mjs`, and as a one-string rollback. |
+| `search_review_candidates` | `(query_embedding, filter_tags?, candidate_pool?, spot_limit?, per_spot_limit?, min_similarity?)` → table of cards **+ `spot_best`** | SEARCH-5 — same scan, but returns the shortlist *uncollapsed* (up to 3 reviews per spot) so the rerank judge can pick between a spot's reviews rather than only accept or reject the one cosine chose. Dedupe happens in the Edge Function. Defined in [`20260818010000_search_rerank_candidates.sql`](../../supabase/migrations/20260818010000_search_rerank_candidates.sql). |
 
 Error convention: RPCs raise a stable machine token as the message
 (`review_exists`, `spot_exists`, `not_authenticated`, `rate_limited`) with the
@@ -159,23 +160,34 @@ so resolving it to a real user is a separate, non-optional step.
 | Function | Version | Endpoint | Does |
 | --- | --- | --- | --- |
 | `embed` | 2 | `POST /functions/v1/embed` `{ input }` → `{ embedding }` | REV-3 — review text → `vector(1536)`. |
-| `search` | 1 | `POST /functions/v1/search` `{ query, filter_tags? }` → `{ results }` | SEARCH-1..4 — embeds the query, calls `search_reviews`, returns cards. |
+| `search` | 2 | `POST /functions/v1/search` `{ query, filter_tags? }` → `{ results }` | SEARCH-1..5 — embeds the query, calls `search_review_candidates`, has Haiku 4.5 judge satisfaction, dedupes to one card per spot. |
 
 **Shared modules** ([`_shared/`](../../supabase/functions/_shared/), the `_` prefix
 keeps them from deploying as endpoints):
 
 - `embedding.ts` — the one embedder. Model **`text-embedding-3-small`**, **1536** dimensions (must equal the `vector(n)` width). Imported by both functions so the model can't drift.
+- `rerank.ts` — the SEARCH-5 judge. Model **`claude-haiku-4-5`**, one listwise call, structured output. Also owns `FALLBACK_MIN_SIMILARITY` (`0.35`) and the pure `resolveSpots` / `fallbackSpots` rankers. Used by `search` only.
 - `auth.ts` — `requireUser`, forwarding the caller's JWT to `getUser()`.
 - `cors.ts` — browser preflight headers (web target).
 
 ### Function secrets
 
-`OPENAI_API_KEY` is the only one set by hand — the OpenAI key, used by `embed` and
-`search`, never `EXPO_PUBLIC_`. The rest are platform-injected:
-`SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_DB_URL`,
-`SUPABASE_JWKS`, `SUPABASE_PUBLISHABLE_KEYS`, `SUPABASE_SECRET_KEYS`. `search` uses
-the injected service-role key to run the ranked scan as owner after it has already
-resolved the caller.
+Two are set by hand, and neither is ever `EXPO_PUBLIC_`: `OPENAI_API_KEY` (used by
+`embed` and `search`) and `ANTHROPIC_API_KEY` (used by `search` for the SEARCH-5
+rerank). The Anthropic key is **optional** — without it `search` logs and degrades
+to cosine ranking rather than failing, which is why it is not treated like the
+OpenAI key. `RERANK_ENABLED=false` forces that same fallback deliberately.
+
+The rest are platform-injected: `SUPABASE_URL`, `SUPABASE_ANON_KEY`,
+`SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_DB_URL`, `SUPABASE_JWKS`,
+`SUPABASE_PUBLISHABLE_KEYS`, `SUPABASE_SECRET_KEYS`. ~~`search` uses the injected
+service-role key to run the ranked scan as owner after it has already resolved the
+caller.~~ **Corrected 2026-08-15:** it never did. `search` calls the RPC through
+`callerClient` — anon key plus the caller's forwarded `Authorization` — and the
+search RPCs are `security definer` granted to `authenticated` alone. A function
+holding the service key would be a way around every grant in
+[`20260814060200_rpcs.sql`](../../supabase/migrations/20260814060200_rpcs.sql), so
+it does not hold one.
 
 ---
 
@@ -191,7 +203,7 @@ One public bucket, `building-images`. Campus photos are reference data, not user
 
 ## Migrations
 
-Twelve, all applied to the remote (verified via `supabase migration list`).
+Thirteen, all applied to the remote (verified via `supabase migration list`).
 
 | Timestamp | Name | Produces |
 | --- | --- | --- |
@@ -207,6 +219,7 @@ Twelve, all applied to the remote (verified via `supabase migration list`).
 | `20260815030300` | search_min_similarity | `search_reviews` similarity floor (SEARCH-4). |
 | `20260816010000` | public_spots_coords | Projects `buildings.latitude` / `longitude` onto `public_spots` (MAP-1). |
 | `20260817010000` | building_images | `building_images` table, `building-images` bucket, `image_path` on `public_spots` and `search_reviews` (REV-12). |
+| `20260818010000` | search_rerank_candidates | `search_review_candidates` — the uncollapsed shortlist the rerank judge reads (SEARCH-5). Additive; `search_reviews` is left installed. |
 
 Regenerate types after any migration: `npm run gen:types`.
 

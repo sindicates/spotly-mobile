@@ -129,10 +129,12 @@ and tap the link.
 
 ## Edge Functions
 
-`supabase/functions/` is the only code allowed to hold `OPENAI_API_KEY`. `embed`
-turns text into a `vector(1536)`; `search` embeds a query and returns review
-cards. `_shared/embedding.ts` owns the model and dimension count so the two
-cannot drift off them.
+`supabase/functions/` is the only code allowed to hold `OPENAI_API_KEY` or
+`ANTHROPIC_API_KEY`. `embed` turns text into a `vector(1536)`; `search` embeds a
+query, retrieves a shortlist, and has Claude Haiku 4.5 judge which reviews
+actually satisfy it (SEARCH-5) before returning cards. `_shared/embedding.ts`
+owns the model and dimension count so the two functions cannot drift off them;
+`_shared/rerank.ts` owns the judge.
 
 ```bash
 npm run functions:serve    # serves every function against the local stack
@@ -150,10 +152,27 @@ curl -X POST "http://127.0.0.1:54331/functions/v1/embed" -H "Authorization: Bear
 curl -X POST "http://127.0.0.1:54331/functions/v1/search" -H "Authorization: Bearer $(npm run -s dev:token)" -H "Content-Type: application/json" -d '{"query":"somewhere quiet to lock in","filter_tags":["outlets"]}'
 ```
 
-`search` returns `{ "results": [ … ] }`, one card per spot, ranked by similarity.
-An empty array is the SEARCH-4 answer — "no strong match" — not a failure. If
-every query comes back empty, the corpus is unembedded: run `npm run
-db:embeddings`.
+The acceptance check for the rerank pass — this must return Clapp's bench nook
+and must **not** return KSL's fourth floor, whose review says to bring a hoodie:
+
+```bash
+curl -X POST "http://127.0.0.1:54331/functions/v1/search" -H "Authorization: Bearer $(npm run -s dev:token)" -H "Content-Type: application/json" -d '{"query":"warm cozy corner in winter"}'
+```
+
+`search` returns `{ "results": [ … ] }`, one card per spot, ranked by how well
+that spot's best review satisfies the query. An empty array is the SEARCH-4
+answer — "no strong match" — not a failure. If every query comes back empty, the
+corpus is unembedded: run `npm run db:embeddings`.
+
+`node scripts/calibrate-rerank.mjs` runs the labelled query set and prints
+recall, precision, latency, and a before/after against the pre-rerank ranking.
+Read recall first — see [semantic-search.md](docs/features/semantic-search.md).
+
+Without `ANTHROPIC_API_KEY` the judge is skipped and search degrades to cosine
+ranking rather than failing; `RERANK_ENABLED=false` forces the same path
+deliberately. A new structured-output schema also pays a one-time compile cost
+cached for 24h, so the first search after a deploy is slow — fire a throwaway
+query before demoing.
 
 `verify_jwt` only proves the caller holds a JWT this project signed — the anon key
 qualifies — so each function also resolves the token to a real user before
@@ -164,6 +183,7 @@ Deployed functions do not read `.env`:
 
 ```bash
 npx supabase secrets set OPENAI_API_KEY=sk-...
+npx supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
 npx supabase functions deploy embed
 npx supabase functions deploy search
 ```

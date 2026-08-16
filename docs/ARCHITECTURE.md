@@ -64,7 +64,7 @@ spotly-mobile/
 │   ├── migrations/          schema, views, RPCs, RLS, buildings reference data
 │   ├── seed.sql             local fake data — runs on `supabase db reset`
 │   └── functions/           Deno Edge Functions
-│       ├── _shared/         embedding helper, auth guard, CORS — shared, never deployed
+│       ├── _shared/         embedding helper, rerank judge, auth guard, CORS — never deployed
 │       ├── embed/           text → vector(1536)
 │       └── search/          embeds a query, calls search_reviews, returns cards
 ├── docs/
@@ -124,7 +124,7 @@ This folder is Deno, not React Native. `tsconfig.json` excludes it and `eslint.c
 
 **`scripts/`** — developer tooling, run by hand via `npm run`, never imported by the app. Plain `.mjs` on bare Node: `node:` builtins only, no dependencies, and `.env` parsed by hand rather than through `dotenv`. Reusing the app's `.env` is deliberate — it is what keeps a script and the app pointed at the same stack. Nothing here ships, which is why these are the only files allowed to hold the service-role key.
 
-`dev-token.mjs` mints a local-only JWT for `curl` and `dev-signin.mjs` drives the real magic-link flow at the simulator (both local-only by construction). `backfill-embeddings.mjs` and `calibrate-search.mjs` are the search pair: the first indexes the corpus, the second prints the similarity spread the `min_similarity` threshold is set from ([semantic-search.md](features/semantic-search.md)). `seed-building-images.mjs` fills the `building-images` bucket from the Wikimedia Commons manifest ([reviews.md](features/reviews.md), REV-12).
+`dev-token.mjs` mints a local-only JWT for `curl` and `dev-signin.mjs` drives the real magic-link flow at the simulator (both local-only by construction). `backfill-embeddings.mjs`, `calibrate-search.mjs` and `calibrate-rerank.mjs` are the search set: the first indexes the corpus, the second prints the similarity spread the `min_similarity` floors are set from, the third runs the labelled query set against the rerank pass and reports recall, precision, latency, and a before/after against cosine-only ranking ([semantic-search.md](features/semantic-search.md)). `seed-building-images.mjs` fills the `building-images` bucket from the Wikimedia Commons manifest ([reviews.md](features/reviews.md), REV-12).
 
 **`docs/`** — the spec. `PRODUCT.md` is the feature list; `features/` is the requirements for each one. Do not put implementation notes that belong in a feature doc here, and do not put screens in `docs/`.
 
