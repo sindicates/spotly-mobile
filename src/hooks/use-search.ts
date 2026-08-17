@@ -19,9 +19,9 @@
  */
 
 import { useAsync, type AsyncState } from '@/hooks/use-async';
-import type { AmenityTag } from '@/lib/amenities';
-import type { SpotReviewCard } from '@/lib/reviews';
-import { searchReviews } from '@/lib/search';
+import type { AmenityTag } from '@/domain/amenities';
+import type { SpotReviewCard } from '@/domain/reviews';
+import { searchReviews } from '@/domain/search';
 
 export function useSearch(
   query: string,

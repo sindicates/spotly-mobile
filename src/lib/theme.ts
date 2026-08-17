@@ -5,7 +5,7 @@ import { DarkTheme, DefaultTheme, type Theme } from 'expo-router';
  *
  * Class names cover almost everything. This object exists for the places a
  * class name cannot reach: React Navigation's theme, status-bar and system-UI
- * colours, and any animated style driven by Reanimated worklets.
+ * colours, map markers, and any animated style driven by Reanimated worklets.
  *
  * This file is a mirror, not a source. If you change a variable in global.css,
  * change it here too — they drift silently, and the symptom is a navigation

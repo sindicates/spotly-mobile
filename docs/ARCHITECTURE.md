@@ -19,7 +19,7 @@ spotly-mobile/
 │   │   └── (app)/
 │   │       ├── (tabs)/           the native tab bar — the app's four destinations
 │   │       │   ├── _layout.tsx   NativeTabs, themed from lib/theme.ts
-│   │       │   ├── index.tsx     home — search-first, trending feed
+│   │       │   ├── index.tsx     home — daily swipeable review deck
 │   │       │   ├── search.tsx    results + SEARCH-4 empty state
 │   │       │   ├── map.tsx       nearby spots — campus map + distance list
 │   │       │   └── favorites.tsx
@@ -29,35 +29,40 @@ spotly-mobile/
 │   │       └── spot/
 │   │           ├── [id].tsx
 │   │           └── new.tsx
-│   ├── components/               shared UI — pills, chips, cards, empty states
+│   ├── components/               shared UI — pills, chips, cards, deck, empty states, toast host
 │   │   └── ui/                   React Native Reusables primitives (vendored, editable)
 │   ├── hooks/                    data-fetching hooks — one per read path
 │   │   ├── use-async.ts          the shared read primitive
+│   │   ├── use-field.ts          field value + error timing (the sign-in form)
 │   │   ├── use-buildings.ts      building picker
 │   │   ├── use-spots-in-building.ts   add-spot duplicate guard
-│   │   ├── use-trending-feed.ts  home feed (SPOT-1)
+│   │   ├── use-trending-feed.ts  home deck, ~10 per day (SPOT-1)
 │   │   ├── use-search.ts         semantic search results, keyed on query + tags
 │   │   ├── use-spot-detail.ts    spot page — spot, reviews, occupancy, favourite
 │   │   ├── use-favorites.ts      saved-spot list
 │   │   ├── use-map-spots.ts      catalog + occupancy for the map list
 │   │   ├── use-user-location.ts  one-shot GPS for the map tab (MAP-4)
 │   │   └── use-review-interactions.ts   expand + increment_expand + report-sheet state
-│   ├── lib/
+│   ├── domain/                   product logic — one file per feature doc
+│   │   ├── amenities.ts          the eight tags
+│   │   ├── occupancy.ts          occupancy states, copy, check-in write, freshness
+│   │   ├── reviews.ts            word floor, prompt, embed, review writes, feed reads
+│   │   ├── spots.ts              buildings / public_spots reads, add-spot write
+│   │   ├── favorites.ts          save / unsave + saved-spot reads (direct table, FAV-3)
+│   │   ├── search.ts             calls the search Edge Function → review cards
+│   │   ├── map.ts                nearby-map reads, haversine, pin grouping
+│   │   ├── reporting.ts          report_review write (MOD-1)
+│   │   ├── onboarding.ts         survey questions, first-review prompt
+│   │   └── validation.ts         pure field validators (infra/input-validation.md)
+│   ├── lib/                      client infrastructure — no product logic
 │   │   ├── supabase.ts           client, RequestError / unwrap, functionErrorMessage
 │   │   ├── database.types.ts     GENERATED — `npm run gen:types`, never hand-edit
 │   │   ├── session.tsx           SessionProvider / useSession
 │   │   ├── storage.ts            MMKV — device-local state (the onboarding flag)
 │   │   ├── auth-url.ts           magic-link fragment parser
 │   │   ├── haptics.ts            semantic haptic helpers (press/selection/success/…)
-│   │   ├── onboarding.ts         survey questions, first-review prompt
-│   │   ├── spots.ts              buildings / public_spots reads, add-spot write
-│   │   ├── reviews.ts            word floor, prompt, embed, review writes, feed reads
-│   │   ├── search.ts             calls the search Edge Function → review cards
-│   │   ├── favorites.ts          save / unsave + saved-spot reads (direct table, FAV-3)
-│   │   ├── reporting.ts          report_review write (MOD-1)
-│   │   ├── amenities.ts          the eight tags
-│   │   ├── occupancy.ts          occupancy states, copy, check-in write, freshness
-│   │   ├── map.ts                nearby-map reads, haversine, pin grouping
+│   │   ├── toast.ts              showToast / showErrorToast — never import the library from a screen
+│   │   ├── utils.ts              cn + errorMessage
 │   │   └── theme.ts              design-token mirror for navigation chrome
 │   └── global.css                design tokens — the source of every colour
 ├── supabase/
@@ -94,15 +99,19 @@ Group segments are stripped from URLs, so `/`, `/search`, `/map`, and `/favorite
 
 **`src/components/`** — UI used on more than one screen. Review cards, occupancy pills, amenity chips, the report sheet. If it is a route, it does not belong here. `ui/` beneath it holds the React Native Reusables primitives, vendored as source rather than installed as a dependency — edit them for the whole app, never for one screen. See [`DESIGN.md`](DESIGN.md).
 
-**`src/lib/`** — non-UI code the app imports: the Supabase client, session provider, device-local storage, API wrappers around RPCs and Edge Functions, the theme mirror, domain types and constants that mirror database enums. No React components, no hooks.
+**`src/domain/`** — the product logic: API wrappers around RPCs, views, and Edge Functions, plus the domain types and constants that mirror database enums. One file per feature, mapping 1:1 onto [`features/`](features/) — plus `validation.ts`, owned by [input-validation.md](infra/input-validation.md). No React components, no hooks.
 
-Organised **by domain, not by kind** — `occupancy.ts` holds the occupancy type, its constants, and its helpers together, rather than scattering them across `types/`, `constants/`, and `services/`. This is load-bearing rather than stylistic: the comment explaining why `OccupancyReading` carries no `lastKnownStatus` sits directly above the type it constrains, and OCC-4 survives contact with the next person to edit that file only because the two cannot be read apart. The same applies to AMEN-2 in `amenities.ts`. A file per feature also maps 1:1 onto [`features/`](features/).
+Organised **by domain, not by kind** — `occupancy.ts` holds the occupancy type, its constants, and its helpers together, rather than scattering them across `types/`, `constants/`, and `services/`. This is load-bearing rather than stylistic: the comment explaining why `OccupancyReading` carries no `lastKnownStatus` sits directly above the type it constrains, and OCC-4 survives contact with the next person to edit that file only because the two cannot be read apart. The same applies to AMEN-2 in `amenities.ts`.
+
+> **Changed 2026-08-16.** ~~Everything non-UI lived flat in `src/lib/`.~~ The feature modules now live in `src/domain/`; `src/lib/` keeps only client infrastructure. The by-domain-not-by-kind rule above is unchanged — what changed is that product logic and plumbing no longer share a folder. The dependency direction is one-way: `domain/` imports `lib/`, never the reverse.
+
+**`src/lib/`** — client infrastructure: the Supabase client, session provider, device-local storage, the haptics/toast/theme platform helpers, `cn`/`errorMessage`. No React components, no hooks, no product logic — a `lib/` file importing from `domain/` is a layering bug.
 
 **`src/lib/database.types.ts` is generated — never hand-edit it.** `npm run gen:types` rewrites it from the linked project's live schema. It is what `createClient<Database>` is parameterised by, so every table name, selected column, and RPC argument is checked against the real schema: a migration that renames a column fails `npm run typecheck` instead of returning `undefined` at runtime. Domain types derive from it (`AmenityTag` is `Database['public']['Enums']['amenity_tag']`), which is what stops the hand-copied enum mirrors from drifting. Regenerate in the same change as any migration.
 
 Note that view rows come back with every column nullable — Postgres cannot prove non-null through a view, so the generator assumes the worst. Narrow at the boundary and say why, as `PublicSpot` does; do not push the nullability into screens that would then render a defensive fallback for a column that is `not null` in the table.
 
-**`src/hooks/`** — React hooks that wrap a `lib/` read for a screen. One file per read path, named `use-<thing>.ts`, all built on `useAsync`. Writes do not belong here: a write's result belongs to the screen that fired it and its errors render inline, so screens call the `lib/` function directly from the submit handler.
+**`src/hooks/`** — React hooks that wrap a `domain/` read for a screen. One file per read path, named `use-<thing>.ts`, all built on `useAsync`. Writes do not belong here: a write's result belongs to the screen that fired it and its errors render inline, so screens call the `domain/` function directly from the submit handler.
 
 `useAsync` is a deliberate minimum, not a cache — no dedupe, no background refetch, no store shared between components. It exists to get request supersession right, which is the bug hand-rolled fetching always has. When two screens need the same data at once, adopt React Query rather than growing it.
 
@@ -114,7 +123,7 @@ Note that view rows come back with every column nullable — Postgres cannot pro
 
 **Building photos are reference data too**, stored in `building_images` plus the `building-images` Storage bucket. Reviews inherit the building's primary photo (REV-12); they do not carry their own. Files are not in git — `npm run db:images` downloads Wikimedia Commons thumbs and uploads them. A building with no freely licensed photo stays `image_path = null`, and the card renders a muted placeholder rather than a photo of a different building.
 
-**`supabase/seed.sql`** — local fake data, applied automatically by `supabase db reset`. Spots, reviews, check-ins, favourites, one open report. It leaves `reviews.embedding` null on purpose: a fabricated vector ranks as a real match and makes the `min_similarity` threshold impossible to calibrate. Seeded reviews are invisible to search until `npm run db:embeddings` (`scripts/backfill-embeddings.mjs`) backfills real ones, so a reset is two commands.
+**`supabase/seed.sql`** — local fake data, applied automatically by `supabase db reset`. Spots, reviews, check-ins, favourites, one open report. It leaves `reviews.embedding` null on purpose: a fabricated vector ranks as a real match and makes the `min_similarity` threshold impossible to calibrate. **`scripts/seed-catalog.sql`** is the idempotent hosted catalog (`npm run db:seed-catalog`) and also runs after `seed.sql` on local reset. Seeded reviews are invisible to search until `npm run db:embeddings` (`scripts/backfill-embeddings.mjs`) backfills real ones, so a reset is two commands.
 
 **`supabase/functions/`** — Deno Edge Functions. `embed` turns review text into a vector; `search` embeds a query and returns cards. They are the only place the OpenAI key is allowed. Share one embedding helper so the two cannot drift.
 

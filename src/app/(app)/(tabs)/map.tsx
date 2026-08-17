@@ -2,7 +2,7 @@ import { router } from 'expo-router';
 import { LocateFixedIcon } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, Linking, Platform, Pressable, View } from 'react-native';
+import { FlatList, Linking, Platform, Pressable, View, type ViewStyle } from 'react-native';
 import type MapView from 'react-native-maps';
 
 import { AmenityChips } from '@/components/amenity-chip';
@@ -24,15 +24,19 @@ import {
   haversineMeters,
   locateMapSpots,
   type MapSpot,
-} from '@/lib/map';
+  type BuildingPin,
+} from '@/domain/map';
 import { THEME } from '@/lib/theme';
 import { cn } from '@/lib/utils';
+
+const TRANSPARENT_PIN = require('../../../../assets/images/transparent-pin.png');
 
 /**
  * MAP-1..5. Campus map of catalogued spots plus a distance-sorted list.
  *
  * Pins are buildings — several spots in KSL share one pin. Occupancy lives on
- * the row, never the pin (MAP-5 / OCC-4). Location is requested here and
+ * the row, never the pin (MAP-5 / OCC-4). Pin colour is saved vs not: green if
+ * any spot in the building is a favourite. Location is requested here and
  * nowhere else; a denial still shows campus (MAP-4).
  *
  * `react-native-maps` is native-only. Web is a Metro convenience, so the map
@@ -41,6 +45,20 @@ import { cn } from '@/lib/utils';
 const Maps = Platform.OS === 'web' ? null : require('react-native-maps');
 const NativeMap = Maps?.default as typeof MapView | undefined;
 const Marker = Maps?.Marker as typeof import('react-native-maps').Marker | undefined;
+
+type ThemeTokens = (typeof THEME)[keyof typeof THEME];
+
+/** Shared by the map markers and the legend so the two cannot drift. */
+function pinDotStyle(favorite: boolean, theme: ThemeTokens, size = 18): ViewStyle {
+  return {
+    height: size,
+    width: size,
+    borderRadius: size / 2,
+    backgroundColor: favorite ? theme.occupancyEmpty : THEME.light.card,
+    borderWidth: 2,
+    borderColor: favorite ? theme.occupancyEmpty : theme.foreground,
+  };
+}
 
 export default function MapTab() {
   const catalog = useMapSpots();
@@ -120,6 +138,7 @@ export default function MapTab() {
                 <Marker
                   coordinate={location.coords}
                   title="You"
+                  image={TRANSPARENT_PIN}
                   anchor={{ x: 0.5, y: 0.5 }}
                   zIndex={10}
                   accessibilityLabel="Your current location">
@@ -136,18 +155,15 @@ export default function MapTab() {
                 </Marker>
               ) : null}
               {pins.map((pin) => (
-                <Marker
+                <BuildingMarker
                   key={pin.buildingId}
-                  coordinate={{ latitude: pin.latitude, longitude: pin.longitude }}
-                  title={pin.building}
-                  description={
-                    pin.spotCount === 1 ? '1 spot' : `${pin.spotCount} spots`
-                  }
-                  pinColor="blue"
+                  pin={pin}
+                  theme={theme}
                   onPress={() => selectBuilding(pin.buildingId)}
                 />
               ))}
             </NativeMap>
+            <PinLegend theme={theme} />
             {location.status === 'granted' ? (
               <View className="absolute bottom-3 right-3">
                 <Button
@@ -231,6 +247,73 @@ type MapSpotRowProps = {
   selected: boolean;
   onOpen: () => void;
 };
+
+type BuildingPinProps = {
+  pin: BuildingPin;
+  theme: ThemeTokens;
+  onPress: () => void;
+};
+
+/**
+ * Custom green/white dots. The default Marker is a red teardrop — it shows
+ * whenever the custom child has not been snapshotted yet (`tracksViewChanges`
+ * false too early). A transparent `image` replaces that default; we track
+ * view changes for one layout pass so the coloured dot actually paints.
+ */
+function BuildingMarker({ pin, theme, onPress }: BuildingPinProps) {
+  const [tracksViewChanges, setTracksViewChanges] = useState(true);
+  if (!Marker) return null;
+
+  return (
+    <Marker
+      coordinate={{ latitude: pin.latitude, longitude: pin.longitude }}
+      title={pin.building}
+      description={pin.spotCount === 1 ? '1 spot' : `${pin.spotCount} spots`}
+      image={TRANSPARENT_PIN}
+      anchor={{ x: 0.5, y: 0.5 }}
+      tracksViewChanges={tracksViewChanges}
+      accessibilityLabel={
+        pin.hasFavorite ? `${pin.building}, favourite` : pin.building
+      }
+      onPress={onPress}>
+      <View
+        onLayout={() => {
+          requestAnimationFrame(() => setTracksViewChanges(false));
+        }}
+        style={pinDotStyle(pin.hasFavorite, theme)}
+      />
+    </Marker>
+  );
+}
+
+function PinLegend({ theme }: { theme: ThemeTokens }) {
+  return (
+    <View
+      accessible
+      accessibilityLabel="Pin colours: green is favourites, white is other buildings"
+      className="border-border bg-card absolute bottom-3 left-3 gap-1.5 rounded-lg border px-3 py-2">
+      <LegendRow favorite theme={theme} label="Favourites" />
+      <LegendRow favorite={false} theme={theme} label="Other" />
+    </View>
+  );
+}
+
+function LegendRow({
+  favorite,
+  theme,
+  label,
+}: {
+  favorite: boolean;
+  theme: ThemeTokens;
+  label: string;
+}) {
+  return (
+    <View className="flex-row items-center gap-2">
+      <View style={pinDotStyle(favorite, theme, 10)} />
+      <Text variant="small">{label}</Text>
+    </View>
+  );
+}
 
 function MapSpotRow({ spot, selected, onOpen }: MapSpotRowProps) {
   return (

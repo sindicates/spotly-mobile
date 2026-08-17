@@ -12,7 +12,7 @@ Related: [spot catalog](spot-catalog.md) · [semantic search](semantic-search.md
 | --- | --- |
 | AMEN-1 | Spots carry eight binary tags: outlets, quiet, lively, group tables, natural light, food nearby, whiteboards, open late. All one type, so filtering is a single operation and the multi-select stays uniform. Quiet and lively are opposing tags rather than a scale. |
 | AMEN-2 | Tags are set once, by the first reviewer, in the add-spot form — then locked. No in-app edit surface in v1; corrections happen in the Supabase dashboard. This drops an edit screen, a cross-user write permission, and an edit-war failure mode there would be no audit trail for. |
-| AMEN-3 | Tags are usable as hard filters on search results, and as the filter chips on the home screen. |
+| AMEN-3 | Tags are usable as hard filters on search results. ~~and as the filter chips on the home screen.~~ **Home dropped filter chips 2026-08-16** — search is its own tab; home is a swipe deck. |
 
 ---
 
@@ -30,4 +30,4 @@ Enum `amenity_tag`: `outlets`, `quiet`, `lively`, `group_tables`, `natural_light
 
 Written only through `create_spot_with_review`. No update, no delete on spots. `create_review` has no tags parameter.
 
-Home screen filter chips and search `filter_tags` are hard constraints (`s.amenity_tags @> filter_tags`), never ranking signals.
+Search `filter_tags` are hard constraints (`s.amenity_tags @> filter_tags`), never ranking signals.

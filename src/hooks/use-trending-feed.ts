@@ -1,21 +1,16 @@
 /**
- * The home screen's trending review feed (SPOT-1).
+ * The home screen's daily review deck (SPOT-1).
  *
- * A feed of reviews with their spot and occupancy, ordered by `trending_score`.
- * See `listTrendingFeed` for why it is a review feed rather than a spot list.
+ * A handful of reviews with their spot and occupancy. See `listTrendingFeed`
+ * for why it is a random-per-day set rather than a ranked dump of the catalog.
  *
- * Keyed on the selected amenity tags, sorted so {outlets,quiet} and
- * {quiet,outlets} are the same key and do not refetch. Changing the filter
- * starts a fresh request and abandons the previous one (`useAsync`
- * supersession), which is what stops a slow unfiltered load from landing on top
- * of a filtered one.
+ * Keyed on the local calendar day so midnight starts a new shuffle without a
+ * manual refresh.
  */
 
 import { useAsync, type AsyncState } from '@/hooks/use-async';
-import type { AmenityTag } from '@/lib/amenities';
-import { listTrendingFeed, type SpotReviewCard } from '@/lib/reviews';
+import { homeDeckDayKey, listTrendingFeed, type SpotReviewCard } from '@/domain/reviews';
 
-export function useTrendingFeed(tags: readonly AmenityTag[] = []): AsyncState<SpotReviewCard[]> {
-  const key = `trending-feed:${[...tags].sort().join(',')}`;
-  return useAsync(() => listTrendingFeed(tags), key);
+export function useTrendingFeed(): AsyncState<SpotReviewCard[]> {
+  return useAsync(() => listTrendingFeed(), `home-deck:${homeDeckDayKey()}`);
 }

@@ -19,7 +19,7 @@
 
 import { useCallback, useState } from 'react';
 
-import { firstError, type Validator } from '@/lib/validation';
+import { firstError, type Validator } from '@/domain/validation';
 
 export type Field = {
   value: string;

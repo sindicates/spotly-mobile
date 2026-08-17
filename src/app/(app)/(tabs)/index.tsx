@@ -1,172 +1,115 @@
 import { router } from 'expo-router';
-import { PlusIcon, SearchIcon } from 'lucide-react-native';
-import { useState } from 'react';
-import { FlatList, View } from 'react-native';
+import { PlusIcon } from 'lucide-react-native';
+import { View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { AmenityFilterChips } from '@/components/amenity-chip';
 import { EmptyState } from '@/components/empty-state';
 import { ReportSheet } from '@/components/report-sheet';
-import { ReviewCard } from '@/components/review-card';
+import { ReviewDeck } from '@/components/review-deck';
 import { Screen } from '@/components/screen';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
-import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { useReviewInteractions } from '@/hooks/use-review-interactions';
 import { useTrendingFeed } from '@/hooks/use-trending-feed';
-import type { AmenityTag } from '@/lib/amenities';
+import { addFavorite, SAVED_TO_FAVOURITES } from '@/domain/favorites';
+import { error as hapticError, success } from '@/lib/haptics';
+import type { SpotReviewCard } from '@/domain/reviews';
+import { showErrorToast, showToast } from '@/lib/toast';
 import { errorMessage } from '@/lib/utils';
 
 /**
- * SPOT-1. The search-first home: a query field and amenity filters up top, then a
- * trending review feed. There is no category browse and no map — v1 is study
- * spots only, and the feed doubles as the thin-catalog answer, reading as a
- * fresh stream rather than an empty grid.
+ * SPOT-1. Home is a swipeable deck of about ten reviews for the day. Search
+ * lives on its own tab — putting a search bar here taught people the same
+ * destination twice.
  *
- * The chips do two jobs with one selection (AMEN-3). They narrow the feed here —
- * server-side, against the whole catalog rather than the twenty loaded rows, so
- * an empty result means "nothing carries these tags" and not "nothing on this
- * page does". And they travel with a submitted query to the results screen,
- * where the same tags become the RPC's hard constraint. A tag means the same
- * thing on both screens, which is the point.
+ * The day's set skips already-saved spots so the deck stays for discovery.
+ * There is no category browse and no map on this screen; v1 is study spots only.
+ * The Home tab names the screen, so there is no in-page title. Add a spot sits
+ * under the deck — it is an action, not a fifth tab. Native tabs draw the bar
+ * over the scene, so that button pads for the bar instead of sitting under it.
  */
+
+/** Home indicator plus the overlaying tab bar. Lists can scroll under; this cannot. */
+const TAB_BAR_OVERLAY = 56;
+
 export default function Home() {
-  const [query, setQuery] = useState('');
-  const [tags, setTags] = useState<AmenityTag[]>([]);
-
-  // The chips do double duty: as a hard filter on the trending feed here (AMEN-3),
-  // and as the filter carried into a full search when the user submits a query.
-  const feed = useTrendingFeed(tags);
+  const feed = useTrendingFeed();
   const interactions = useReviewInteractions();
+  const insets = useSafeAreaInsets();
+  const cards = feed.data ?? [];
 
-  function runSearch() {
-    // The query is what gets embedded, so an empty one is not a search — but a
-    // chip-only tap should still take the user to the results screen, where the
-    // field is focused and the filter is already applied.
-    //
-    // `navigate`, not `push`: search is a sibling tab, so this is a tab switch
-    // that hands over params, not a new screen on the stack. And because that
-    // tab stays mounted between visits, `k` marks each hand-off as a distinct
-    // change — without it, searching the same words twice would leave the
-    // results screen showing whatever was typed there in between.
-    router.navigate({
-      pathname: '/search',
-      params: { q: query.trim(), tags: tags.join(','), k: String(Date.now()) },
-    });
-  }
-
-  function toggleTag(tag: AmenityTag) {
-    setTags((current) =>
-      current.includes(tag) ? current.filter((t) => t !== tag) : [...current, tag]
+  function onFavorite(card: SpotReviewCard) {
+    // Favourites are spots, not reviews (FAV-1). The card is how you found it.
+    void addFavorite(card.spotId).then(
+      () => {
+        success();
+        showToast(SAVED_TO_FAVOURITES, `${card.areaName} · ${card.building}`);
+      },
+      (cause) => {
+        hapticError();
+        showErrorToast(errorMessage(cause, "Couldn't save that spot."));
+      }
     );
   }
 
   return (
     // The tab bar owns the bottom inset — see `Screen`.
     <Screen edges={['top']}>
-      <FlatList
-        data={feed.data ?? []}
-        keyExtractor={(item) => item.reviewId}
-        contentContainerClassName="gap-3 px-5 pb-10"
-        keyboardShouldPersistTaps="handled"
-        ListHeaderComponent={
-          <View className="gap-4 pb-1 pt-2">
-            <View className="flex-row items-center justify-between">
-              <Text variant="h2" className="border-b-0 pb-0">
-                Spotly
-              </Text>
-              {/*
-                Favourites used to sit here beside it. It is a tab now, and a
-                destination with two entry points is a destination people learn
-                twice — the tab bar is the one that is always visible. Adding a
-                spot stays: it is an action, not a place, and there is no tab
-                for it.
-              */}
-              <Button
-                variant="ghost"
-                size="icon"
-                onPress={() => router.push('/spot/new')}
-                accessibilityLabel="Add a spot">
-                <Icon as={PlusIcon} className="text-foreground" size={22} />
-              </Button>
-            </View>
-
-            <View className="gap-3">
-              <View className="flex-row items-center gap-2">
-                <View className="flex-1 flex-row items-center gap-2">
-                  <Input
-                    value={query}
-                    onChangeText={setQuery}
-                    onSubmitEditing={runSearch}
-                    placeholder="Somewhere to lock in…"
-                    returnKeyType="search"
-                    autoCapitalize="none"
-                    className="flex-1"
-                  />
-                </View>
-                <Button size="icon" onPress={runSearch} accessibilityLabel="Search">
-                  <Icon as={SearchIcon} className="text-primary-foreground" size={18} />
-                </Button>
+      <View className="flex-1">
+        {feed.loading && cards.length === 0 ? (
+          <View className="flex-1 px-5 pt-3">
+            <View className="min-h-0 flex-1">
+              <View
+                className="absolute inset-x-0 overflow-hidden rounded-lg"
+                style={{ transform: [{ scale: 0.96 }, { translateY: 14 }] }}>
+                <Skeleton className="h-full w-full" />
               </View>
-              <AmenityFilterChips selected={tags} onToggle={toggleTag} />
+              <Skeleton className="h-full w-full rounded-lg" />
             </View>
-
-            <Text variant="muted" className="pt-1">
-              Trending now
-            </Text>
           </View>
-        }
-        renderItem={({ item }) => (
-          <ReviewCard
-            body={item.body}
-            areaName={item.areaName}
-            building={item.building}
-            occupancy={item.occupancy}
-            tags={item.tags}
-            reviewCount={item.reviewCount}
-            imageUrl={item.imageUrl}
-            expanded={interactions.isExpanded(item.reviewId)}
-            onToggleExpand={() => interactions.toggleExpand(item.reviewId)}
-            onOpenSpot={() => router.push(`/spot/${item.spotId}`)}
-            onReport={() => interactions.openReport(item.reviewId)}
+        ) : feed.error && cards.length === 0 ? (
+          <View className="flex-1 items-center justify-center gap-3 px-5">
+            <Text variant="muted" className="text-center">
+              {errorMessage(feed.error, "We couldn't load the feed.")}
+            </Text>
+            <Button variant="outline" size="sm" onPress={feed.refetch}>
+              <Text>Try again</Text>
+            </Button>
+          </View>
+        ) : cards.length === 0 ? (
+          <EmptyState
+            className="flex-1 justify-center"
+            title="Nothing here yet"
+            description="Be the first — add a spot and write its first review."
+            action={{ label: 'Add a spot', onPress: () => router.push('/spot/new') }}
+          />
+        ) : (
+          <ReviewDeck
+            cards={cards}
+            isExpanded={interactions.isExpanded}
+            onToggleExpand={interactions.toggleExpand}
+            onOpenSpot={(spotId) => router.push(`/spot/${spotId}`)}
+            onReport={interactions.openReport}
+            onFavorite={onFavorite}
           />
         )}
-        ListEmptyComponent={
-          feed.loading ? (
-            <View className="gap-3">
-              {[0, 1, 2].map((i) => (
-                <View key={i} className="overflow-hidden rounded-lg">
-                  <Skeleton className="aspect-video w-full" />
-                  <Skeleton className="h-32 w-full" />
-                </View>
-              ))}
-            </View>
-          ) : feed.error ? (
-            <View className="items-center gap-3 py-12">
-              <Text variant="muted" className="text-center">
-                {errorMessage(feed.error, "We couldn't load the feed.")}
-              </Text>
-              <Button variant="outline" size="sm" onPress={feed.refetch}>
-                <Text>Try again</Text>
-              </Button>
-            </View>
-          ) : tags.length > 0 ? (
-            <EmptyState
-              title="No spots match those filters"
-              description="Nothing trending has every tag you picked. Loosen the filters, or add a spot that does."
-              action={{ label: 'Add a spot', onPress: () => router.push('/spot/new') }}
-              secondaryAction={{ label: 'Clear filters', onPress: () => setTags([]) }}
-            />
-          ) : (
-            <EmptyState
-              title="Nothing here yet"
-              description="Be the first — add a spot and write its first review."
-              action={{ label: 'Add a spot', onPress: () => router.push('/spot/new') }}
-            />
-          )
-        }
-      />
+
+        {/*
+          Adding a spot is an action, not a place, so it has no tab. It sits
+          under the deck rather than in a title row — the Home tab already
+          names the screen, and the cards need the height the header stole.
+        */}
+        {cards.length > 0 || feed.loading ? (
+          <View className="px-5" style={{ paddingBottom: insets.bottom + TAB_BAR_OVERLAY }}>
+            <Button variant="outline" onPress={() => router.push('/spot/new')}>
+              <Icon as={PlusIcon} className="text-foreground" size={16} />
+              <Text>Add a spot</Text>
+            </Button>
+          </View>
+        ) : null}
+      </View>
 
       <ReportSheet reviewId={interactions.reportReviewId} onClose={interactions.closeReport} />
     </Screen>

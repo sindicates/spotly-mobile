@@ -2,17 +2,17 @@ import { FlatList, useWindowDimensions, View } from 'react-native';
 
 import { ReviewCard } from '@/components/review-card';
 import { Text } from '@/components/ui/text';
-import type { OccupancyReading } from '@/lib/occupancy';
-import type { SpotReview } from '@/lib/reviews';
+import type { OccupancyReading } from '@/domain/occupancy';
+import type { SpotReview } from '@/domain/reviews';
 
 /**
  * REV-4. One spot's reviews as a horizontally swipeable deck.
  *
- * This is the single deliberate exception to SPOT-4 — everywhere else a list of
- * reviews is a plain vertical list. The carousel exists to solve the wall-of-text
- * failure on a spot that has collected a year of reviews: swiping keeps the
- * default view scannable, and tap-to-expand (REV-5) puts the full text one tap
- * away without a navigation.
+ * Search results stay a plain vertical list (SPOT-4). Home has its own stacked
+ * deck (`ReviewDeck`). This carousel is the spot-page swipe: it exists to solve
+ * the wall-of-text failure on a spot that has collected a year of reviews.
+ * Swiping keeps the default view scannable, and tap-to-expand (REV-5) puts the
+ * full text one tap away without a navigation.
  *
  * Order is trending, not chronological (REV-6), and it arrives that way from
  * `listSpotReviews` — there is no sort here to drift from the view's weights.

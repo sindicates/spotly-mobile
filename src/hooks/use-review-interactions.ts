@@ -14,7 +14,7 @@
 
 import { useCallback, useRef, useState } from 'react';
 
-import { incrementExpand } from '@/lib/reviews';
+import { incrementExpand } from '@/domain/reviews';
 
 export function useReviewInteractions() {
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set());

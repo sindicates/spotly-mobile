@@ -10,10 +10,10 @@
  */
 
 import { useAsync, type AsyncState } from '@/hooks/use-async';
-import { isFavorite } from '@/lib/favorites';
-import { getOccupancy, type OccupancyReading } from '@/lib/occupancy';
-import { listSpotReviews, type SpotReview } from '@/lib/reviews';
-import { getSpot, type PublicSpot } from '@/lib/spots';
+import { isFavorite } from '@/domain/favorites';
+import { getOccupancy, type OccupancyReading } from '@/domain/occupancy';
+import { listSpotReviews, type SpotReview } from '@/domain/reviews';
+import { getSpot, type PublicSpot } from '@/domain/spots';
 
 export type SpotDetail = {
   spot: PublicSpot;

@@ -69,7 +69,8 @@ Building photos live in `building_images` + the `building-images` Storage bucket
 
 ### Screens
 
-- Home feed and search — review cards with the building photo on top (REV-12).
+- Home feed — swipeable deck of review cards with the building photo on top (REV-12).
+- Search — the same cards in a vertical list.
 - Spot detail carousel — horizontal swipe, tap-to-expand, trending order. No photo on the cards; the page hero is the one image.
 - `(app)/review/new` — body field only. Building, spot, and tags are already fixed. Hidden when `is_mine` is already true on that spot.
 - Review form prompt and 15-word live counter: [spot catalog](spot-catalog.md).

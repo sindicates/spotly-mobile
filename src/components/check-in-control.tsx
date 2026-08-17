@@ -2,7 +2,7 @@ import { View } from 'react-native';
 
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
-import { CHECK_IN_OPTIONS, OCCUPANCY_LABELS, type OccupancyStatus } from '@/lib/occupancy';
+import { CHECK_IN_OPTIONS, OCCUPANCY_LABELS, type OccupancyStatus } from '@/domain/occupancy';
 import { cn } from '@/lib/utils';
 
 /**

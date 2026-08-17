@@ -11,7 +11,7 @@ import { useField } from '@/hooks/use-field';
 import { error as hapticError, success } from '@/lib/haptics';
 import { supabase } from '@/lib/supabase';
 import { errorMessage } from '@/lib/utils';
-import { caseEmail } from '@/lib/validation';
+import { caseEmail } from '@/domain/validation';
 
 /**
  * AUTH-1..3. One screen for both signup and sign-in — there is no account to
@@ -47,7 +47,7 @@ function callbackURL(): string {
 }
 
 export default function SignIn() {
-  // The `.edu` check is a `useField` validator now (lib/validation.ts) — the
+  // The `.edu` check is a `useField` validator now (domain/validation.ts) — the
   // canonical regex and message live there, so this screen no longer carries its
   // own copy. Emptiness stays the disabled button's job, not the validator's.
   const email = useField({ validators: [caseEmail()] });

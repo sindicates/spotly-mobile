@@ -16,7 +16,7 @@ Related: [`DESIGN.md` → Forms](../DESIGN.md) · [authentication.md](../feature
 
 | File | Job |
 | --- | --- |
-| [`src/lib/validation.ts`](../../src/lib/validation.ts) | The validators — pure `(value) => error \| null` functions, and `firstError` to compose them. No React. |
+| [`src/domain/validation.ts`](../../src/domain/validation.ts) | The validators — pure `(value) => error \| null` functions, and `firstError` to compose them. No React. |
 | [`src/hooks/use-field.ts`](../../src/hooks/use-field.ts) | One field's state, and — the part worth centralising — **when** its error is allowed to show. |
 | [`src/components/field-error.tsx`](../../src/components/field-error.tsx) | The message under the field. One treatment (`small`, `text-destructive`, hidden when empty), decided once. |
 
@@ -145,7 +145,7 @@ See [supabase.md](supabase.md) for those mechanisms.
 
 ## Two things this layer does *not* own
 
-- **The review body.** It has its own component, [`ReviewBodyField`](../../src/components/review-body-field.tsx), because the prompt (REV-11) and the live word counter (REV-10) travel together across three screens. Gate its submit with `meetsWordFloor(body)` from `lib/reviews.ts`; `minWords(15)` exists here for any *other* field that needs a floor, and both count the same way.
+- **The review body.** It has its own component, [`ReviewBodyField`](../../src/components/review-body-field.tsx), because the prompt (REV-11) and the live word counter (REV-10) travel together across three screens. Gate its submit with `meetsWordFloor(body)` from `domain/reviews.ts`; `minWords(15)` exists here for any *other* field that needs a floor, and both count the same way.
 - **Anything async.** A validator is synchronous. "Is this spot already listed" is a database round trip, not a validator — it is the duplicate guard on the add-spot form, which fetches and renders matches inline.
 
 ---

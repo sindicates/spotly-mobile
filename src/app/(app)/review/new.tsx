@@ -7,7 +7,7 @@ import { Screen } from '@/components/screen';
 import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { error as hapticError, success, warning } from '@/lib/haptics';
-import { createReview, isDuplicateReviewError, meetsWordFloor } from '@/lib/reviews';
+import { createReview, isDuplicateReviewError, meetsWordFloor } from '@/domain/reviews';
 import { errorMessage } from '@/lib/utils';
 
 /**

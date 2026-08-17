@@ -3,15 +3,17 @@
  *
  * Pins are buildings (MAP-1): a spot is a named area inside a building, and
  * only the building has coordinates. Occupancy stays on the row, never on the
- * pin (MAP-5) — colouring a building would invent a status from several spots
- * that may disagree or have no recent report (OCC-4).
+ * pin (MAP-5 / OCC-4) — colouring a building by how full it is would invent a
+ * status from several spots that may disagree. Pin colour is saved vs not:
+ * green if any spot in the building is a favourite.
  *
  * Reads compose `public_spots` (now projecting lat/lng) and `spot_occupancy`.
  * A miss on occupancy is `null`, the same left-join shape as favourites.
  */
 
-import type { AmenityTag } from '@/lib/amenities';
-import { toOccupancyReading, type OccupancyReading } from '@/lib/occupancy';
+import type { AmenityTag } from '@/domain/amenities';
+import { listFavoriteSpotIds } from '@/domain/favorites';
+import { toOccupancyReading, type OccupancyReading } from '@/domain/occupancy';
 import { supabase, unwrap } from '@/lib/supabase';
 
 export type LatLng = {
@@ -45,6 +47,8 @@ export type MapSpot = {
   occupancy: OccupancyReading;
   /** Null when the user has no fix — the list then sorts by building name. */
   distanceMeters: number | null;
+  /** FAV-1. The pin for this building turns green when any spot in it is saved. */
+  isFavorite: boolean;
 };
 
 /** One pin per building that has at least one placeable spot (MAP-1). */
@@ -54,6 +58,8 @@ export type BuildingPin = {
   latitude: number;
   longitude: number;
   spotCount: number;
+  /** True when at least one spot in this building is saved (MAP-5). */
+  hasFavorite: boolean;
 };
 
 const EARTH_RADIUS_M = 6_371_000;
@@ -110,6 +116,7 @@ export function groupPins(spots: readonly MapSpot[]): BuildingPin[] {
     const existing = pins.get(spot.buildingId);
     if (existing) {
       existing.spotCount += 1;
+      existing.hasFavorite = existing.hasFavorite || spot.isFavorite;
       continue;
     }
     pins.set(spot.buildingId, {
@@ -118,6 +125,7 @@ export function groupPins(spots: readonly MapSpot[]): BuildingPin[] {
       latitude: spot.latitude,
       longitude: spot.longitude,
       spotCount: 1,
+      hasFavorite: spot.isFavorite,
     });
   }
   return [...pins.values()];
@@ -130,7 +138,7 @@ export function groupPins(spots: readonly MapSpot[]): BuildingPin[] {
  * and would sit in the list with no map counterpart (MAP-1).
  */
 export async function listMapSpots(): Promise<MapSpot[]> {
-  const [spots, occupancy] = await Promise.all([
+  const [spots, occupancy, favoriteIds] = await Promise.all([
     supabase
       .from('public_spots')
       .select(
@@ -138,9 +146,11 @@ export async function listMapSpots(): Promise<MapSpot[]> {
       )
       .then(unwrap),
     supabase.from('spot_occupancy').select('spot_id, status, reported_at').then(unwrap),
+    listFavoriteSpotIds(),
   ]);
 
   const occupancyBySpot = new Map(occupancy.map((row) => [row.spot_id, row]));
+  const saved = new Set(favoriteIds);
 
   const result: MapSpot[] = [];
   for (const spot of spots) {
@@ -164,6 +174,7 @@ export async function listMapSpots(): Promise<MapSpot[]> {
       longitude: spot.longitude,
       occupancy: toOccupancyReading(occ?.status, occ?.reported_at),
       distanceMeters: null,
+      isFavorite: saved.has(spot.id),
     });
   }
   return result;

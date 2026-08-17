@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -19,20 +19,19 @@ import {
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
-import type { AmenityTag } from '@/lib/amenities';
+import { useBuildings } from '@/hooks/use-buildings';
+import { useSpotsInBuilding } from '@/hooks/use-spots-in-building';
+import type { AmenityTag } from '@/domain/amenities';
 import { error as hapticError, success, warning } from '@/lib/haptics';
-import { FIRST_REVIEW_PROMPT } from '@/lib/onboarding';
-import { createReview, isDuplicateReviewError, meetsWordFloor } from '@/lib/reviews';
+import { FIRST_REVIEW_PROMPT } from '@/domain/onboarding';
+import { createReview, isDuplicateReviewError, meetsWordFloor } from '@/domain/reviews';
 import { useSession } from '@/lib/session';
 import {
   createSpotWithReview,
   isDuplicateSpotError,
-  listBuildings,
-  listSpotsInBuilding,
   matchSpotsByName,
-  type Building,
   type PublicSpot,
-} from '@/lib/spots';
+} from '@/domain/spots';
 import { errorMessage } from '@/lib/utils';
 
 /**
@@ -50,11 +49,13 @@ export default function FirstReview() {
   const insets = useSafeAreaInsets();
   const { completeOnboarding } = useSession();
 
-  const [buildings, setBuildings] = useState<Building[] | null>(null);
-  const [buildingsError, setBuildingsError] = useState('');
+  const buildingsState = useBuildings();
+  const buildings = buildingsState.data;
+  const buildingsError = buildingsState.error
+    ? errorMessage(buildingsState.error, "We couldn't load the building list.")
+    : '';
 
   const [building, setBuilding] = useState<Option>(undefined);
-  const [spots, setSpots] = useState<readonly PublicSpot[]>([]);
 
   const [areaName, setAreaName] = useState('');
   /** Matches are shown after a blur, not per keystroke — see SPOT-5. */
@@ -69,35 +70,11 @@ export default function FirstReview() {
 
   const buildingId = building?.value;
 
-  // Settled in the promise handlers rather than after an `await`: these run from
-  // an effect, and a setState in an effect body is a cascading render.
-  const loadBuildings = useCallback(() => {
-    listBuildings().then(
-      (rows) => {
-        setBuildings(rows);
-        setBuildingsError('');
-      },
-      (cause: unknown) => {
-        setBuildings(null);
-        setBuildingsError(errorMessage(cause, "We couldn't load the building list."));
-      }
-    );
-  }, []);
-
-  useEffect(loadBuildings, [loadBuildings]);
-
-  const loadSpots = useCallback((id: string) => {
-    listSpotsInBuilding(id).then(setSpots, () => {
-      // Soft-fail on purpose. The duplicate check is a guard, not a gate — if it
-      // cannot run, the worst case is a duplicate spot, and blocking the review
-      // over it would cost the contribution this whole screen exists to collect.
-      setSpots([]);
-    });
-  }, []);
-
-  useEffect(() => {
-    if (buildingId) loadSpots(buildingId);
-  }, [buildingId, loadSpots]);
+  // Soft-fail on purpose. The duplicate check is a guard, not a gate — if it
+  // cannot run, the worst case is a duplicate spot, and blocking the review
+  // over it would cost the contribution this whole screen exists to collect.
+  const { data: buildingSpots, refetch: refetchSpots } = useSpotsInBuilding(buildingId ?? null);
+  const spots = buildingSpots ?? [];
 
   const matches = dupeChecked && !existing ? matchSpotsByName(spots, areaName) : [];
   const isNewSpot = existing === null;
@@ -149,7 +126,7 @@ export default function FirstReview() {
       if (isDuplicateSpotError(cause)) {
         warning();
         setError('That spot is already listed. Pick it above and add your review there.');
-        loadSpots(buildingId);
+        refetchSpots();
         setDupeChecked(true);
         return;
       }
@@ -190,12 +167,7 @@ export default function FirstReview() {
                   variant="outline"
                   size="sm"
                   className="self-start"
-                  // Clearing the message first is what puts the skeleton back —
-                  // otherwise a retry looks like nothing happened until it lands.
-                  onPress={() => {
-                    setBuildingsError('');
-                    loadBuildings();
-                  }}>
+                  onPress={buildingsState.refetch}>
                   <Text>Try again</Text>
                 </Button>
               </View>
@@ -204,7 +176,6 @@ export default function FirstReview() {
                 value={building}
                 onValueChange={(option) => {
                   setBuilding(option);
-                  setSpots([]);
                   clearExisting();
                 }}>
                 <SelectTrigger aria-labelledby="building" className="w-full">

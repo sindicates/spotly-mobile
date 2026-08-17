@@ -10,14 +10,14 @@ import { OccupancyPill } from '@/components/occupancy-pill';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
-import type { AmenityTag } from '@/lib/amenities';
+import type { AmenityTag } from '@/domain/amenities';
 import { selection } from '@/lib/haptics';
-import type { OccupancyReading } from '@/lib/occupancy';
+import type { OccupancyReading } from '@/domain/occupancy';
 import { cn } from '@/lib/utils';
 
 /**
  * A review with its spot attached. The single most reused surface in the app:
- * the trending feed, search results, and the spot-page carousel are all this
+ * the trending feed deck, search results, and the spot-page carousel are all this
  * component with a different container around it.
  *
  * Search results are review cards, not spot summaries (SEARCH-2). That is the
@@ -66,6 +66,12 @@ type ReviewCardProps = {
   onReport?: () => void;
   className?: string;
   /**
+   * Home deck only. The card fills its parent and the building photo takes the
+   * leftover height, so the stack can be as tall as the screen instead of
+   * hugging `aspect-video`. Search and the spot-page carousel stay intrinsic.
+   */
+  fill?: boolean;
+  /**
    * Escape hatch for a measured width, which the carousel computes from the
    * window rather than a class. Layout only — colour and spacing stay in
    * `className` so they keep resolving from tokens.
@@ -87,23 +93,28 @@ export function ReviewCard({
   onOpenSpot,
   onReport,
   className,
+  fill = false,
   style,
 }: ReviewCardProps) {
   return (
     <View
       style={style}
-      className={cn('border-border bg-card overflow-hidden rounded-lg border', className)}>
+      className={cn(
+        'border-border bg-card overflow-hidden rounded-lg border',
+        fill && 'flex-1',
+        className
+      )}>
       {showSpotContext ? (
         imageUrl ? (
           <Image
             source={{ uri: imageUrl }}
-            className="bg-muted aspect-video w-full"
+            className={cn('bg-muted w-full', fill ? 'min-h-0 flex-1' : 'aspect-video')}
             contentFit="cover"
             accessibilityLabel={`${building} exterior`}
           />
         ) : (
           <View
-            className="bg-muted aspect-video w-full"
+            className={cn('bg-muted w-full', fill ? 'min-h-0 flex-1' : 'aspect-video')}
             accessibilityLabel={`${building}, no photo`}
           />
         )

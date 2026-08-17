@@ -66,10 +66,11 @@ npm run doctor
 Schema lives in `supabase/migrations/`. Never edit the hosted schema by hand — local and remote drift the moment you do.
 
 ```bash
-npm run db:reset      # rebuild the local database and load supabase/seed.sql
-npm run db:embeddings # embed every review that has no vector yet
-npm run db:images     # download Wikimedia building photos into Storage
-npm run gen:types     # regenerate src/lib/database.types.ts from the linked project
+npm run db:reset        # rebuild the local database and load seed.sql + seed-catalog.sql
+npm run db:seed-catalog # idempotent spots/reviews seed against the linked hosted project
+npm run db:embeddings   # embed every review that has no vector yet
+npm run db:images       # download Wikimedia building photos into Storage
+npm run gen:types       # regenerate src/lib/database.types.ts from the linked project
 ```
 
 `db:reset` leaves `reviews.embedding` null on purpose — a fabricated vector ranks
@@ -94,7 +95,7 @@ After writing a migration: apply it locally, regenerate types, then `npx supabas
 
 `src/lib/database.types.ts` is generated output. Editing it by hand works right up until the next regeneration silently reverts you.
 
-Seed data is local only — `db push` applies migrations, not `seed.sql`.
+`db push` applies migrations, not seed data. Hosted catalog rows come from `npm run db:seed-catalog` (`scripts/seed-catalog.sql`), which is idempotent and skips student-created spots.
 
 ### Calling authenticated endpoints locally
 

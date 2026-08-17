@@ -13,9 +13,12 @@
  * shows "No recent reports", never a stale badge (OCC-4).
  */
 
-import type { AmenityTag } from '@/lib/amenities';
-import { toOccupancyReading, type OccupancyReading } from '@/lib/occupancy';
+import type { AmenityTag } from '@/domain/amenities';
+import { toOccupancyReading, type OccupancyReading } from '@/domain/occupancy';
 import { RequestError, supabase, unwrap } from '@/lib/supabase';
+
+/** FAV-1. Copy for the home-deck swipe-right confirmation. */
+export const SAVED_TO_FAVOURITES = 'Saved to favourites';
 
 /** A saved spot as the favourites list renders it (FAV-2). */
 export type FavoriteSpot = {
@@ -79,6 +82,12 @@ export async function removeFavorite(spotId: string): Promise<void> {
       .eq('spot_id', spotId)
       .select()
   );
+}
+
+/** FAV-1. Spot ids the caller has already saved, for the home deck to skip. */
+export async function listFavoriteSpotIds(): Promise<string[]> {
+  const rows = unwrap(await supabase.from('favorites').select('spot_id'));
+  return rows.map((row) => row.spot_id);
 }
 
 /**

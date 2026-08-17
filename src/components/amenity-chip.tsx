@@ -2,7 +2,7 @@ import { View } from 'react-native';
 
 import { Toggle } from '@/components/ui/toggle';
 import { Text } from '@/components/ui/text';
-import { AMENITY_TAGS, amenityLabel, type AmenityTag } from '@/lib/amenities';
+import { AMENITY_TAGS, amenityLabel, type AmenityTag } from '@/domain/amenities';
 import { cn } from '@/lib/utils';
 
 /**
@@ -13,7 +13,7 @@ import { cn } from '@/lib/utils';
  * a display chip is never pressable. If a chip looks tappable, someone will try
  * to edit it and find nothing happens.
  *
- * `AmenityFilterChips` — selectable. The home screen filter row and the add-spot
+ * `AmenityFilterChips` — selectable. The search screen filter row and the add-spot
  * form. Selection is a hard constraint on search, never a ranking hint (AMEN-3):
  * a spot either has the tag or it does not appear. Do not soften this into a
  * "prefer" weighting — "I need an outlet" is a yes/no requirement.

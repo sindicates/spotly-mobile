@@ -10,10 +10,10 @@ Related: [reviews](reviews.md) · [amenity tags](amenity-tags.md) · [architectu
 
 | ID | Requirement |
 | --- | --- |
-| SPOT-1 | Every spot is a study spot in v1, so there is no category browse. Home is search-first, with a trending review feed beneath the search bar. `category` stays in the schema, single-valued, so dining and hangout need data entry rather than a migration. |
+| SPOT-1 | Every spot is a study spot in v1, so there is no category browse. Home is a swipeable deck of ~10 reviews for the day, preferring spots the user has not already saved; search lives on the Search tab. `category` stays in the schema, single-valued, so dining and hangout need data entry rather than a migration. |
 | SPOT-2 | A spot page shows building and area name, the building's primary photo once as a hero, amenity tags, current occupancy status with the check-in control, and its review carousel. The photo is not repeated on every carousel card. |
 | SPOT-3 | Any authenticated user can create a spot that isn't listed yet, supplying building, area name, amenity tags, and a first review. |
-| SPOT-4 | Search results render as a standard vertical list, not a card deck. The review carousel (REV-4) is the one deliberate exception. |
+| SPOT-4 | Search results render as a standard vertical list, not a card deck. The two swipe surfaces are the home feed deck (SPOT-1) and the spot-page review carousel (REV-4). |
 | SPOT-5 | Adding a spot uses a structured form, not free text: building (select), area name (text), amenity tags (multi-select), first review (required). No category field — v1 is study-only. No building → sub-spot hierarchy; spots stay flat with building as an attribute. |
 
 **Acceptance:** A user can find an existing spot by searching, and can add a missing spot in a single flow that ends with their review attached.
@@ -56,7 +56,7 @@ left join building_images img on img.building_id = b.id and img.is_primary;
 
 ### Screens
 
-- `(app)/index` — search bar up top, amenity filter chips below it, then a trending review feed ordered by `trending_score`. Doubles as the thin-catalog answer: a small catalog reads as a fresh feed, not an empty grid.
+- `(app)/index` — swipeable deck of about ten reviews for the day, shuffled from a trending pool, skipping already-saved spots (FAV-1). Same set until the local date changes. No search bar: that destination is the Search tab.
 - `(app)/spot/[id]` — name and building; building photo hero (SPOT-2 / REV-12); occupancy pill with the three check-in buttons; amenity tag chips; review carousel; review count; favorite toggle; "Add your review" hidden if `is_mine` is already true.
 - `(app)/spot/new` — the structured form:
 

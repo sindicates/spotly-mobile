@@ -8,8 +8,9 @@
  * the embedding index — so it is worth the redundancy.
  */
 
-import type { AmenityTag } from '@/lib/amenities';
-import { toOccupancyReading, type OccupancyReading } from '@/lib/occupancy';
+import type { AmenityTag } from '@/domain/amenities';
+import { listFavoriteSpotIds } from '@/domain/favorites';
+import { toOccupancyReading, type OccupancyReading } from '@/domain/occupancy';
 import { functionErrorMessage, RequestError, supabase, unwrap } from '@/lib/supabase';
 
 /**
@@ -53,7 +54,7 @@ export function meetsWordFloor(body: string): boolean {
  * Throws. Callers on the review write path want `tryEmbedReviewBody` instead —
  * see the note there for why posting no longer depends on this succeeding.
  */
-export async function embedReviewBody(body: string): Promise<number[]> {
+async function embedReviewBody(body: string): Promise<number[]> {
   const { data, error } = await supabase.functions.invoke<{ embedding: number[] }>('embed', {
     body: { input: body },
   });
@@ -178,55 +179,97 @@ export type SpotReview = {
   createdAt: string;
 };
 
-/** How many trending reviews the home feed pulls. Design for 1–3 seen (SPOT-4). */
-const TRENDING_FEED_LIMIT = 20;
+/** How many cards the home deck shows in a day. */
+const HOME_DECK_SIZE = 10;
+/** Wider pool to shuffle from so the day's ten are not just the top of trending. */
+const HOME_DECK_POOL = 60;
+
+/** Local calendar day, so the deck does not flip at UTC midnight. */
+export function homeDeckDayKey(now = new Date()): string {
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function hashSeed(value: string): number {
+  let hash = 2166136261;
+  for (let i = 0; i < value.length; i++) {
+    hash ^= value.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return hash >>> 0;
+}
+
+/** Deterministic shuffle so the same day + account yields the same ten cards. */
+function seededShuffle<T>(items: readonly T[], seed: string): T[] {
+  const copy = [...items];
+  const random = (() => {
+    let a = hashSeed(seed);
+    return () => {
+      a |= 0;
+      a = (a + 0x6d2b79f5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  })();
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    const swap = copy[i];
+    copy[i] = copy[j]!;
+    copy[j] = swap!;
+  }
+  return copy;
+}
 
 /**
- * SPOT-1. The home feed: recent, engaged reviews with their spot and occupancy.
+ * SPOT-1. The home feed: a handful of reviews for today, not the whole catalog.
  *
- * Ordered by `trending_score`, which is a column on `public_reviews` rather than
- * a client sort because PostgREST cannot order by an arbitrary expression and
- * the weights are a product decision that belongs in the view (REV-6). This is a
- * feed of reviews, not spots — a spot with two trending reviews appears twice,
- * which is correct: the feed doubles as the thin-catalog answer, reading as a
- * fresh stream rather than an empty grid.
+ * Ten cards, shuffled from a trending pool, stable for the local calendar day
+ * so opening the tab twice does not reshuffle. Already-saved spots are skipped
+ * first (FAV-1) — the deck is for discovering, Favourites is for returning.
+ * If there are not enough unsaved spots, saved ones fill the rest rather than
+ * leaving home empty.
+ *
+ * Ordered into the pool by `trending_score` (a column on `public_reviews`
+ * because PostgREST cannot order by an arbitrary expression; the weights belong
+ * in the view, REV-6). The shuffle is what makes the day's set feel like a
+ * fresh handful rather than a ranked list.
  *
  * Three reads, joined on the client: reviews for the order and text, spots for
  * the context, occupancy for the pill. `public_reviews` and `public_spots` are
  * separate views with no PostgREST embed between them, and occupancy is a left
  * join by nature (a spot with no recent report is simply absent, OCC-4).
- *
- * `tags` narrows the catalog before the feed is drawn, not after (AMEN-3). The
- * difference matters: filtering the twenty loaded reviews would show an empty
- * feed whenever the matching spots happen to sit lower in trending order, which
- * reads as "nothing has outlets" when the truth is "nothing on this page does".
- * Same containment operator as search uses, so a tag means the same thing on
- * both screens — a hard constraint, never a ranking weight.
  */
-export async function listTrendingFeed(
-  tags: readonly AmenityTag[] = []
-): Promise<SpotReviewCard[]> {
-  let taggedSpotIds: string[] | null = null;
-  if (tags.length > 0) {
-    const tagged = unwrap(
-      await supabase.from('public_spots').select('id').contains('amenity_tags', [...tags])
-    );
-    taggedSpotIds = tagged.map((s) => s.id).filter((id): id is string => !!id);
-    if (taggedSpotIds.length === 0) return [];
-  }
+export async function listTrendingFeed(): Promise<SpotReviewCard[]> {
+  const [{ data: sessionData }, savedIds, pool] = await Promise.all([
+    supabase.auth.getSession(),
+    listFavoriteSpotIds(),
+    supabase
+      .from('public_reviews')
+      .select('id, spot_id, body')
+      .order('trending_score', { ascending: false })
+      .limit(HOME_DECK_POOL)
+      .then(unwrap),
+  ]);
 
-  let query = supabase
-    .from('public_reviews')
-    .select('id, spot_id, body')
-    .order('trending_score', { ascending: false })
-    .limit(TRENDING_FEED_LIMIT);
-  if (taggedSpotIds) query = query.in('spot_id', taggedSpotIds);
+  if (pool.length === 0) return [];
 
-  const reviews = unwrap(await query);
-  if (reviews.length === 0) return [];
+  const saved = new Set(savedIds);
+  const unsaved = pool.filter((row) => row.spot_id && !saved.has(row.spot_id));
+  const alreadySaved = pool.filter((row) => row.spot_id && saved.has(row.spot_id));
 
-  const spotIds = [...new Set(reviews.map((r) => r.spot_id).filter((id): id is string => !!id))];
-  return joinSpotContext(reviews, spotIds);
+  const seed = `${homeDeckDayKey()}:${sessionData.session?.user.id ?? 'anon'}`;
+  const picked = [
+    ...seededShuffle(unsaved, `${seed}:new`),
+    ...seededShuffle(alreadySaved, `${seed}:saved`),
+  ].slice(0, HOME_DECK_SIZE);
+
+  if (picked.length === 0) return [];
+
+  const spotIds = [...new Set(picked.map((r) => r.spot_id).filter((id): id is string => !!id))];
+  return joinSpotContext(picked, spotIds);
 }
 
 /**

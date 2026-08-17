@@ -16,11 +16,11 @@ It is not a social network, a booking system, or a replacement for official camp
 | --- | --- |
 | [Authentication](features/authentication.md) | `.edu` magic-link signup. No passwords, no profiles. Account IDs never reach other users. |
 | [Onboarding](features/onboarding.md) | A short taste survey, then one guided review of a place they already know. That review unlocks the app. |
-| [Spot catalog](features/spot-catalog.md) | Search-first home plus spot pages. Anyone can add a missing spot via a structured form (building, area, tags, first review). |
+| [Spot catalog](features/spot-catalog.md) | Daily swipeable review deck on home plus spot pages. Anyone can add a missing spot via a structured form (building, area, tags, first review). |
 | [Semantic search](features/semantic-search.md) | Natural-language queries matched against review text, not building metadata. Results are review cards, one per spot. Weak matches are an empty state, not a list. |
 | [Reviews](features/reviews.md) | One anonymous review per person per spot. Horizontal carousel, tap-to-expand, ordered by recency + how often a card was opened. List cards show the building's photo. No star ratings, no user-uploaded photos. |
 | [Occupancy](features/occupancy.md) | Two-tap check-in: Empty / Some seats / Packed. Status is live for 60 minutes, then "no recent reports." |
 | [Amenity tags](features/amenity-tags.md) | Eight write-once tags (outlets, quiet, lively, group tables, natural light, food nearby, whiteboards, open late). Used as hard search filters. |
-| [Favorites](features/favorites.md) | Private saved-spot list with current occupancy. |
-| [Nearby map](features/nearby-map.md) | Campus map of catalogued spots, one pin per building, list underneath sorted by walking distance. Occupancy stays on the row, not the pin. |
+| [Favorites](features/favorites.md) | Private saved-spot list with current occupancy. Swipe right on the home deck to save a spot. |
+| [Nearby map](features/nearby-map.md) | Campus map of catalogued spots, one pin per building, list underneath sorted by walking distance. Occupancy stays on the row. Pin colour is saved (green) vs not (white). |
 | [Reporting](features/reporting.md) | Flag any review. Team hides it from the Supabase dashboard. In-app content policy: no naming identifiable people. |

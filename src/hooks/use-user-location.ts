@@ -13,7 +13,7 @@ import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Platform } from 'react-native';
 
-import type { LatLng } from '@/lib/map';
+import type { LatLng } from '@/domain/map';
 
 export type LocationStatus = 'loading' | 'granted' | 'denied';
 

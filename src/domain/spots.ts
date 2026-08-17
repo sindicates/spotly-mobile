@@ -9,10 +9,10 @@
  */
 
 import type { Database } from '@/lib/database.types';
-import { toVectorLiteral, tryEmbedReviewBody } from '@/lib/reviews';
+import { toVectorLiteral, tryEmbedReviewBody } from '@/domain/reviews';
 import { RequestError, supabase, unwrap } from '@/lib/supabase';
 
-import type { AmenityTag } from '@/lib/amenities';
+import type { AmenityTag } from '@/domain/amenities';
 
 const BUILDING_IMAGES_BUCKET = 'building-images';
 

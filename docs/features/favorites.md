@@ -28,4 +28,4 @@ If time runs short, this is the first thing to cut. Do not cut occupancy, modera
 
 Table `favorites` with primary key `(account_id, spot_id)`. RLS: select/insert/delete where `account_id = auth.uid()`. Private by construction.
 
-Toggle lives on `(app)/spot/[id]`. List lives on `(app)/favorites` — vertical list of saved spots, each showing current occupancy from `spot_occupancy`.
+Toggle lives on `(app)/spot/[id]`. Swipe-right on the home deck also saves the card's spot (FAV-1) — favourites are spots, not reviews — and a toast confirms. List lives on `(app)/favorites` — vertical list of saved spots, each showing current occupancy from `spot_occupancy`.

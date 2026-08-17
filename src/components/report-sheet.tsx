@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Text } from '@/components/ui/text';
 import { Textarea } from '@/components/ui/textarea';
 import { error as hapticError, success } from '@/lib/haptics';
-import { reportReview } from '@/lib/reporting';
+import { reportReview } from '@/domain/reporting';
 import { errorMessage } from '@/lib/utils';
 
 /**

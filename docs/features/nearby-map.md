@@ -14,7 +14,7 @@ Related: [spot catalog](spot-catalog.md) · [occupancy](occupancy.md)
 | MAP-2 | When location is granted, show the user on the map and sort the list by geodesic distance to the building. Distance is a label (`0.2 mi`), not a ranking that hides far spots. CWRU is walkable; show the whole catalog, nearest first. |
 | MAP-3 | Tap a pin: select that building, scroll the list to its first spot, highlight its rows. Tap a row: open the existing spot page. |
 | MAP-4 | Location is requested only when this tab is opened. Denied or failed: still show the map centered on campus, no user dot, list in building-name order, with copy and a link to Settings. Do not block the tab. |
-| MAP-5 | Occupancy appears on list rows only, via the same pill as everywhere else. No pin colour, no “last seen”, no geo-gated check-in (OCC-5 unchanged). |
+| MAP-5 | Occupancy appears on list rows only, via the same pill as everywhere else. Never as pin colour — that would invent a building-level status from spots that may disagree (OCC-4). Pin colour is saved vs not: **green** if any spot in the building is a favourite, **white** otherwise. |
 
 **Acceptance:** A signed-in user can open the Map tab, see every catalogued spot on a campus map, and reach a spot page from the list. Without location permission the catalog is still usable.
 
@@ -26,7 +26,7 @@ Students already know the campus as buildings on a walk. Search answers “what�
 
 Pins are buildings because that is what has coordinates. A spot is a named area inside a building (`3rd floor, north windows`); giving each spot its own pin would stack them on the same lat/lng and invent a precision the data does not have. The list is where spots live.
 
-This is not closest-open-spot. Occupancy is per-spot and expires in 60 minutes (OCC-4). Colouring a building pin would invent a building-level status from several spots that may disagree or have no recent report. The pill stays on the row.
+This is not closest-open-spot. Occupancy is per-spot and expires in 60 minutes (OCC-4). Colouring a building pin by how full it is would invent a building-level status from several spots that may disagree or have no recent report. The pill stays on the row. Pin colour is a different signal: the building has a saved spot, or it does not. A building with mixed saved/unsaved spots is green — one favourite is enough to find it again.
 
 Distance sorts; it does not filter. Hiding a spot 800 m away on a one-mile campus is a worse empty state than a slightly longer list.
 
@@ -60,4 +60,4 @@ Campus fallback centre is Kelvin Smith Library (`41.5074, -81.6096`) — the sam
 
 ### Screen
 
-- `(app)/(tabs)/map` — map on the top half (one pin per building, user location when granted, recenter when a fix exists). List on the bottom half: area name, building, distance, occupancy pill, amenity chips. Selected building’s rows use the accent surface. Empty catalog and fetch error are the usual four-state treatments; location-denied is a banner, not an empty state.
+- `(app)/(tabs)/map` — map on the top half (one pin per building, green if any spot there is a favourite, white otherwise; colour key: Favourites / Other; user location when granted, recenter when a fix exists). List on the bottom half: area name, building, distance, occupancy pill, amenity chips. Selected building’s rows use the accent surface. Empty catalog and fetch error are the usual four-state treatments; location-denied is a banner, not an empty state.

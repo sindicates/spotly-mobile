@@ -3,7 +3,7 @@ import { View } from 'react-native';
 import { Label } from '@/components/ui/label';
 import { Text } from '@/components/ui/text';
 import { Textarea } from '@/components/ui/textarea';
-import { countWords, REVIEW_PROMPT, REVIEW_WORD_FLOOR } from '@/lib/reviews';
+import { countWords, REVIEW_PROMPT, REVIEW_WORD_FLOOR } from '@/domain/reviews';
 import { cn } from '@/lib/utils';
 
 /**

@@ -12,7 +12,7 @@
  */
 
 import { useAsync, type AsyncState } from '@/hooks/use-async';
-import { listSpotsInBuilding, type PublicSpot } from '@/lib/spots';
+import { listSpotsInBuilding, type PublicSpot } from '@/domain/spots';
 
 export function useSpotsInBuilding(buildingId: string | null): AsyncState<PublicSpot[]> {
   return useAsync(

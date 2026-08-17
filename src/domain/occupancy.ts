@@ -38,9 +38,6 @@ export const NO_RECENT_REPORTS = 'No recent reports';
 /** OCC-4. A reading older than this is not a reading. */
 export const FRESHNESS_WINDOW_MINUTES = 60;
 
-/** OCC-6. Enforced by a database trigger; the UI only explains the rejection. */
-export const CHECK_IN_RATE_LIMIT_MINUTES = 15;
-
 /** Order the check-in buttons appear in, least to most full. */
 export const CHECK_IN_OPTIONS: readonly OccupancyStatus[] = ['empty', 'some_seats', 'packed'];
 

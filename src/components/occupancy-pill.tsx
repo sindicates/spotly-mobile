@@ -9,7 +9,7 @@ import {
   OCCUPANCY_LABELS,
   type OccupancyReading,
   type OccupancyStatus,
-} from '@/lib/occupancy';
+} from '@/domain/occupancy';
 import { cn } from '@/lib/utils';
 
 /**

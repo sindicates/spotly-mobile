@@ -13,11 +13,11 @@
  * re-filters, or pads the list. An empty array is SEARCH-4, not an error.
  */
 
-import type { AmenityTag } from '@/lib/amenities';
-import { toOccupancyReading } from '@/lib/occupancy';
-import type { OccupancyStatus } from '@/lib/occupancy';
-import type { SpotReviewCard } from '@/lib/reviews';
-import { buildingImageUrl } from '@/lib/spots';
+import type { AmenityTag } from '@/domain/amenities';
+import { toOccupancyReading } from '@/domain/occupancy';
+import type { OccupancyStatus } from '@/domain/occupancy';
+import type { SpotReviewCard } from '@/domain/reviews';
+import { buildingImageUrl } from '@/domain/spots';
 import { functionErrorMessage, RequestError, supabase } from '@/lib/supabase';
 
 /**

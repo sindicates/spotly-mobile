@@ -15,7 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { useReviewInteractions } from '@/hooks/use-review-interactions';
 import { useSearch } from '@/hooks/use-search';
-import { AMENITY_TAGS, type AmenityTag } from '@/lib/amenities';
+import { AMENITY_TAGS, type AmenityTag } from '@/domain/amenities';
 import { errorMessage } from '@/lib/utils';
 
 /** Parses the comma-joined `tags` param back into valid amenity values. */
@@ -43,17 +43,16 @@ export default function Search() {
   const params = useLocalSearchParams<{ q?: string; tags?: string; k?: string }>();
 
   const [query, setQuery] = useState(params.q ?? '');
-  // The query actually searched. Seeded from the param so arriving from home with
-  // a typed query runs immediately; edited only on submit so keystrokes don't
+  // The query actually searched. Seeded from the param so a hand-off with a
+  // typed query runs immediately; edited only on submit so keystrokes don't
   // fire a request each.
   const [submitted, setSubmitted] = useState(params.q ?? '');
   const [tags, setTags] = useState<AmenityTag[]>(() => parseTags(params.tags));
 
   // Seeding at mount is only correct for a screen that remounts. This one is a
-  // tab: it mounts once and survives every visit, so a hand-off from home has to
-  // land here too, or a second search from home would silently show the first
-  // one's results. `k` is home's per-hand-off marker, which is what makes
-  // repeating the same query a change rather than a no-op.
+  // tab: it mounts once and survives every visit, so a later `navigate` with
+  // params has to land here too. `k` is the per-hand-off marker, which is what
+  // makes repeating the same query a change rather than a no-op.
   //
   // Adjusted during render rather than in an effect. React re-runs this
   // component immediately, before anything paints, so the screen never shows the

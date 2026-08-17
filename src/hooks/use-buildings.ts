@@ -6,7 +6,7 @@
  */
 
 import { useAsync, type AsyncState } from '@/hooks/use-async';
-import { listBuildings, type Building } from '@/lib/spots';
+import { listBuildings, type Building } from '@/domain/spots';
 
 export function useBuildings(): AsyncState<Building[]> {
   return useAsync(listBuildings, 'buildings');

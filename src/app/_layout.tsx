@@ -5,6 +5,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useColorScheme } from 'nativewind';
 import { useEffect } from 'react';
 
+import { AppToast } from '@/components/app-toast';
 import { SessionProvider, useSession } from '@/lib/session';
 import { NAV_THEME } from '@/lib/theme';
 
@@ -22,10 +23,10 @@ void SplashScreen.preventAutoHideAsync();
  * 2. Hand the palette to React Navigation, so headers and card backgrounds match
  *    the app surface instead of defaulting to system white.
  * 3. Gate the three route groups on session + onboarding.
- * 4. Mount the `PortalHost`. React Native has no DOM portals, so every overlay
- *    component (Dialog, Select, AlertDialog) renders into this host rather than
- *    in place. It must be the LAST child of the providers, or overlays paint
- *    underneath the screen they were opened from.
+ * 4. Mount the `PortalHost`, then `AppToast`. React Native has no DOM portals,
+ *    so every overlay (Dialog, Select, the toast) renders into a host rather
+ *    than in place. Both must sit after the navigator, and the toast last, or
+ *    they paint underneath the screen they were opened from.
  */
 export default function RootLayout() {
   const { colorScheme } = useColorScheme();
@@ -38,6 +39,7 @@ export default function RootLayout() {
         <RootNavigator />
       </SessionProvider>
       <PortalHost />
+      <AppToast />
     </ThemeProvider>
   );
 }

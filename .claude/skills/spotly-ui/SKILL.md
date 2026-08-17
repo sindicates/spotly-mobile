@@ -92,7 +92,7 @@ These are requirements with docs behind them, not preferences. Breaking one is a
 
 **Weak search results are an empty state.** Zero rows above the similarity threshold means the empty state, with the query echoed and an action. Never pad a list with the closest bad matches. (SEARCH-4)
 
-**Search results are review cards, one per spot** — the matching review with its spot attached, not a spot summary. A plain vertical list, never a card deck. The spot-page carousel is the one exception. (SEARCH-2, SPOT-4)
+**Search results are review cards, one per spot** — the matching review with its spot attached, not a spot summary. A plain vertical list, never a card deck. Home is a swipeable feed deck; the spot-page carousel is the other swipe surface. (SEARCH-2, SPOT-4, SPOT-1, REV-4)
 
 **Amenity tags are write-once.** Read-only chips everywhere except the add-spot form. No edit surface, and display chips are never pressable. (AMEN-2)
 

@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -20,18 +20,17 @@ import {
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
-import type { AmenityTag } from '@/lib/amenities';
+import { useBuildings } from '@/hooks/use-buildings';
+import { useSpotsInBuilding } from '@/hooks/use-spots-in-building';
+import type { AmenityTag } from '@/domain/amenities';
 import { error as hapticError, selection, success, warning } from '@/lib/haptics';
-import { createReview, isDuplicateReviewError, meetsWordFloor } from '@/lib/reviews';
+import { createReview, isDuplicateReviewError, meetsWordFloor } from '@/domain/reviews';
 import {
   createSpotWithReview,
   isDuplicateSpotError,
-  listBuildings,
-  listSpotsInBuilding,
   matchSpotsByName,
-  type Building,
   type PublicSpot,
-} from '@/lib/spots';
+} from '@/domain/spots';
 import { errorMessage } from '@/lib/utils';
 
 /**
@@ -50,11 +49,13 @@ import { errorMessage } from '@/lib/utils';
 export default function AddSpot() {
   const insets = useSafeAreaInsets();
 
-  const [buildings, setBuildings] = useState<Building[] | null>(null);
-  const [buildingsError, setBuildingsError] = useState('');
+  const buildingsState = useBuildings();
+  const buildings = buildingsState.data;
+  const buildingsError = buildingsState.error
+    ? errorMessage(buildingsState.error, "We couldn't load the building list.")
+    : '';
 
   const [building, setBuilding] = useState<Option>(undefined);
-  const [spots, setSpots] = useState<readonly PublicSpot[]>([]);
 
   const [areaName, setAreaName] = useState('');
   const [dupeChecked, setDupeChecked] = useState(false);
@@ -68,31 +69,11 @@ export default function AddSpot() {
 
   const buildingId = building?.value;
 
-  const loadBuildings = useCallback(() => {
-    listBuildings().then(
-      (rows) => {
-        setBuildings(rows);
-        setBuildingsError('');
-      },
-      (cause: unknown) => {
-        setBuildings(null);
-        setBuildingsError(errorMessage(cause, "We couldn't load the building list."));
-      }
-    );
-  }, []);
-
-  useEffect(loadBuildings, [loadBuildings]);
-
-  const loadSpots = useCallback((id: string) => {
-    // Soft-fail: the duplicate check is a guard, not a gate. If it can't run the
-    // worst case is a duplicate spot, and blocking the contribution over it costs
-    // more than it saves.
-    listSpotsInBuilding(id).then(setSpots, () => setSpots([]));
-  }, []);
-
-  useEffect(() => {
-    if (buildingId) loadSpots(buildingId);
-  }, [buildingId, loadSpots]);
+  // Soft-fail by design: the duplicate check is a guard, not a gate. If it can't
+  // run, the worst case is a duplicate spot, and blocking the contribution over
+  // it costs more than it saves — so a failed fetch reads as an empty list.
+  const { data: buildingSpots, refetch: refetchSpots } = useSpotsInBuilding(buildingId ?? null);
+  const spots = buildingSpots ?? [];
 
   const matches = dupeChecked && !existing ? matchSpotsByName(spots, areaName) : [];
   const isNewSpot = existing === null;
@@ -138,7 +119,7 @@ export default function AddSpot() {
       if (isDuplicateSpotError(cause)) {
         warning();
         setError('That spot is already listed. Pick it above and add your review there.');
-        loadSpots(buildingId);
+        refetchSpots();
         setDupeChecked(true);
         return;
       }
@@ -176,10 +157,7 @@ export default function AddSpot() {
                   variant="outline"
                   size="sm"
                   className="self-start"
-                  onPress={() => {
-                    setBuildingsError('');
-                    loadBuildings();
-                  }}>
+                  onPress={buildingsState.refetch}>
                   <Text>Try again</Text>
                 </Button>
               </View>
@@ -188,7 +166,6 @@ export default function AddSpot() {
                 value={building}
                 onValueChange={(option) => {
                   setBuilding(option);
-                  setSpots([]);
                   clearExisting();
                 }}>
                 <SelectTrigger aria-labelledby="building" className="w-full">

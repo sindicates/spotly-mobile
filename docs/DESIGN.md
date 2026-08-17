@@ -65,6 +65,8 @@ The only place Spotly uses colour to carry meaning rather than emphasis.
 
 Three reported states and a fourth, load-bearing non-state. **The fourth has no colour of its own on purpose.** Grey reads as absence of data; anything else reads as a fourth status, and a stale badge shown confidently is worse than no badge (OCC-4). Never add an `occupancy-unknown` token, and never dim one of the three instead.
 
+Map pins use green/white for saved vs not (MAP-5). That is not occupancy — the pill on the row is.
+
 ---
 
 ## Typography
@@ -133,12 +135,14 @@ Three with sharp edges:
 | `CheckInControl` | OCC-1, OCC-6 — three buttons, no confirm step. Rate limiting is a DB trigger; this renders the server's message |
 | `AmenityChips` | AMEN-2 — read-only, never pressable. Tags lock after the first reviewer |
 | `AmenityFilterChips` | AMEN-3 — selection is a hard constraint on search, never a ranking weight |
-| `ReviewCard` | REV-2, REV-5, REV-12, SEARCH-2 — no author, no avatar, tap expands in place, a separate control navigates. The cover photo is the building's, shown only when `showSpotContext` is on |
-| `ReviewCarousel` | REV-4 — the one horizontal deck in the app (SPOT-4's single exception). Wraps `ReviewCard` with `showSpotContext` off rather than defining a second review surface |
+| `ReviewCard` | REV-2, REV-5, REV-12, SEARCH-2 — no author, no avatar, tap expands in place, a separate control navigates. The cover photo is the building's, shown only when `showSpotContext` is on. `fill` is home-deck only: the card stretches and the photo takes leftover height; search and the carousel stay intrinsic |
+| `ReviewCarousel` | REV-4 — a spot's reviews as a horizontal peek carousel. Wraps `ReviewCard` with `showSpotContext` off rather than defining a second review surface |
+| `ReviewDeck` | SPOT-1, FAV-1 — the home feed as a stacked swipeable deck. Swipe right saves the spot. Same `ReviewCard` with `fill`, spot context on. The two outcomes are named in a line above the stack and stamped on the card as the drag passes halfway |
 | `ReviewBodyField` | REV-10, REV-11 — the prompt and the 15-word counter, in one place |
 | `EmptyState` | SEARCH-4 — title, description, action |
 | `ReportSheet` | MOD-1/2/3 — the one modal; optional reason, files a report, never removes the card client-side |
 | `Screen` | Safe area and background, decided once |
+| `AppToast` | Root toast host. Token-based layouts so the library's hardcoded colours cannot leak. Screens call `lib/toast.ts` |
 
 Domain types mirroring database enums live in `src/lib/` — `occupancy.ts`, `amenities.ts`, `reviews.ts`. Keep them in sync with the migration.
 
@@ -165,10 +169,10 @@ It is native, which means **NativeWind cannot reach it**. Colours come from `THE
 
 Two consequences for screens:
 
-- **Tab screens have no navigation header.** The title belongs in the screen, as an `h2` in the list header, where it scrolls with the content — see home and favourites.
-- **Tab screens drop the `bottom` safe-area edge.** The tab bar already sits in that inset and insets its own content; adding it again pads the list twice.
+- **Tab screens have no navigation header.** Favourites (and search, when it has one) put the title in the screen as an `h2`. Home does not — the tab label is enough, and the deck needs the height.
+- **Tab screens drop the `bottom` safe-area edge** on lists, so content can scroll under the iOS 26 material bar. A control *pinned* to the bottom of a tab — Add a spot under the home deck — has to pad for the bar itself (`insets.bottom` plus the bar overlay). The bar does not consume the scene's bottom the way a stacked navigation header consumes the top.
 
-Anything pushed on top — spot detail, the two forms, the content policy — keeps its native header and covers the tab bar. A destination gets a tab; an action does not, which is why "Add a spot" stays a button on home.
+Anything pushed on top — spot detail, the two forms, the content policy — keeps its native header and covers the tab bar. A destination gets a tab; an action does not, which is why "Add a spot" is a button under the home deck, not a fifth tab.
 
 The back control is the chevron only (`headerBackButtonDisplayMode: 'minimal'`). Do not show the previous route name on the button — it reads as a second title.
 
@@ -201,16 +205,17 @@ Never render a timestamp beside a status — not even a fresh one. The freshness
 
 ### Lists and modals
 
-- Search results are a **plain vertical list**, never a card deck (SPOT-4). The spot-page review carousel is the one deliberate exception.
+- Search results are a **plain vertical list**, never a card deck (SPOT-4). Home is a stacked swipe deck (SPOT-1); swipe right saves the spot (FAV-1). The spot-page review carousel is the other swipe surface (REV-4).
 - Design as though results 1–3 are all anyone sees; treat the rest as overflow.
 - The only modal in v1 is the report sheet (MOD-1) — a modal, not a route. Build it with `Dialog`; there is no bottom-sheet primitive installed and one surface does not justify the dependency. In Figma, modals are drawn at half a screen's height with a grabber handle. Dismissing must always be possible without completing the action.
+- Toasts are transient confirmation, not a second modal. The home deck uses one when a swipe-right saves a spot. Mount `AppToast` once at the root (last child, with `PortalHost`). Screens call `showToast` / `showErrorToast` in `lib/toast.ts` — they never import `react-native-toast-message`. Layouts are custom so they use semantic tokens; the library's default `BaseToast` hardcodes colour.
 
 ### Copy
 
 Copy is part of the component, not a decoration applied after.
 
 - Say what happened, not what the system did. "Nothing matches that yet", not "Query returned 0 results".
-- Fixed strings live next to the rule they express — `NO_RECENT_REPORTS` in `lib/occupancy.ts`, `REVIEW_PROMPT` in `lib/reviews.ts`. A string on two screens is a constant, so it cannot be reworded on one of them.
+- Fixed strings live next to the rule they express — `NO_RECENT_REPORTS` in `domain/occupancy.ts`, `REVIEW_PROMPT` in `domain/reviews.ts`. A string on two screens is a constant, so it cannot be reworded on one of them.
 - No exclamation marks, no "Oops". The voice is a straight answer from someone who has been there.
 
 ### Haptics
@@ -221,7 +226,7 @@ Tactile feedback is a design-system behaviour, not a per-screen reminder. Screen
 | --- | --- |
 | `press()` | A control was pressed. `Button` fires this. |
 | `selection()` | A choice changed. `Toggle`, `SelectItem`, review-card expand. |
-| `success()` | A write landed — magic link sent, survey saved, review posted, check-in accepted. |
+| `success()` | A write landed — magic link sent, survey saved, review posted, check-in accepted, spot saved to favourites |
 | `warning()` | Soft rejection — rate-limited check-in, a write that cannot proceed as typed. |
 | `error()` | Hard failure — network drop, submit rejected. |
 

@@ -12,7 +12,7 @@ import { Icon } from '@/components/ui/icon';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { useFavorites } from '@/hooks/use-favorites';
-import { removeFavorite, type FavoriteSpot } from '@/lib/favorites';
+import { removeFavorite, type FavoriteSpot } from '@/domain/favorites';
 import { press, success, warning } from '@/lib/haptics';
 
 /**

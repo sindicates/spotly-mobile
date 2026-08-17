@@ -1,4 +1,3 @@
-import { Icon } from '@/components/ui/icon';
 import { TextClassContext } from '@/components/ui/text';
 import { selection } from '@/lib/haptics';
 import { cn } from '@/lib/utils';
@@ -71,9 +70,4 @@ function Toggle({
   );
 }
 
-function ToggleIcon({ className, ...props }: React.ComponentProps<typeof Icon>) {
-  const textClass = React.useContext(TextClassContext);
-  return <Icon className={cn('size-4 shrink-0', textClass, className)} {...props} />;
-}
-
-export { Toggle, ToggleIcon, toggleVariants };
+export { Toggle, toggleVariants };

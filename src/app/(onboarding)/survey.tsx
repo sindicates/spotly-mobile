@@ -13,7 +13,7 @@ import {
   type SurveyAnswers,
   type SurveyAnswerValue,
   type SurveyQuestionId,
-} from '@/lib/onboarding';
+} from '@/domain/onboarding';
 import { supabase } from '@/lib/supabase';
 import { errorMessage } from '@/lib/utils';
 

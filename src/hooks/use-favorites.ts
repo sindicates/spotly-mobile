@@ -3,7 +3,7 @@
  */
 
 import { useAsync, type AsyncState } from '@/hooks/use-async';
-import { listFavoriteSpots, type FavoriteSpot } from '@/lib/favorites';
+import { listFavoriteSpots, type FavoriteSpot } from '@/domain/favorites';
 
 export function useFavorites(): AsyncState<FavoriteSpot[]> {
   return useAsync(listFavoriteSpots, 'favorites');

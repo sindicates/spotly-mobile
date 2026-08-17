@@ -1,5 +1,6 @@
 // Fills the `building-images` Storage bucket and `building_images` rows from
-// the Wikimedia Commons manifest.
+// the Wikimedia Commons manifest, plus a small Flickr CC-BY list for buildings
+// Commons does not have.
 //
 // Building photos are reference data, but the files are not in git — a reset
 // leaves the table empty. Reviews inherit the primary photo (REV-12); this is
@@ -91,6 +92,31 @@ async function existingPrimaryPaths() {
  * 1200px derivative plus the license fields the table stores.
  * Commons requires a descriptive User-Agent; a bare fetch is rate-limited.
  */
+/**
+ * Flickr oEmbed for a CC-licensed photo page. Used when Commons has no file
+ * we can identify as this building — REV-12 still applies: the page title /
+ * description must name the building, and NC/ND licenses are not accepted.
+ */
+async function flickrFile(pageUrl) {
+  const params = new URLSearchParams({ url: pageUrl, format: "json" });
+  const res = await fetch(`https://www.flickr.com/services/oembed/?${params}`, {
+    headers: { "User-Agent": USER_AGENT },
+  });
+  if (!res.ok) throw new Error(`Flickr oEmbed ${res.status} for ${pageUrl}`);
+  const data = await res.json();
+  const license = (data.license ?? "").toLowerCase();
+  if (!license.startsWith("cc by") || license.includes("nc") || license.includes("nd")) {
+    throw new Error(`Flickr license is not reusable (${data.license}) for ${pageUrl}`);
+  }
+  if (!data.url) throw new Error(`Flickr oEmbed has no image url for ${pageUrl}`);
+  return {
+    downloadUrl: data.url,
+    sourceUrl: data.web_page || pageUrl,
+    license: data.license,
+    attribution: data.author_name || "",
+  };
+}
+
 async function commonsFile(filename) {
   const params = new URLSearchParams({
     action: "query",
@@ -162,36 +188,41 @@ async function upsertRow(row) {
 const manifest = JSON.parse(
   readFileSync(new URL("./building-images.manifest.json", import.meta.url), "utf8"),
 );
+const flickrManifest = JSON.parse(
+  readFileSync(new URL("./building-images.flickr.json", import.meta.url), "utf8"),
+);
 
 const buildings = await listBuildings();
 const byName = new Map(buildings.map((b) => [b.name, b]));
 const already = await existingPrimaryPaths();
 
 console.log(`Seeding building images on ${new URL(API).host}`);
-console.log(`${Object.keys(manifest).length} in the manifest, ${buildings.length} buildings in the table`);
+console.log(
+  `${Object.keys(manifest).length} Commons + ${Object.keys(flickrManifest).length} Flickr in the manifest, ${buildings.length} buildings in the table`,
+);
 
 let uploaded = 0;
 let skipped = 0;
 
-for (const [name, commonsFileName] of Object.entries(manifest)) {
+async function seedOne(name, resolveFile) {
   const building = byName.get(name);
   if (!building) {
     console.warn(`  skip (no building row): ${name}`);
     skipped += 1;
-    continue;
+    return;
   }
 
   if (already.has(building.id)) {
     console.log(`  ${name} already seeded (${already.get(building.id)})`);
     skipped += 1;
-    continue;
+    return;
   }
 
   const path = storagePath(building.short_name, building.name);
   try {
     // Commons 429s if we fire every request back-to-back.
     await sleep(3000);
-    const file = await commonsFile(commonsFileName);
+    const file = await resolveFile();
     const bytes = await downloadImage(file.downloadUrl);
     await uploadObject(path, bytes);
     await upsertRow({
@@ -202,12 +233,21 @@ for (const [name, commonsFileName] of Object.entries(manifest)) {
       license: file.license || null,
       attribution: file.attribution || null,
     });
+    already.set(building.id, path);
     console.log(`  ${name} → ${path} (${file.license || "unknown license"})`);
     uploaded += 1;
   } catch (cause) {
     console.warn(`  fail ${name}: ${cause.message}`);
     skipped += 1;
   }
+}
+
+for (const [name, commonsFileName] of Object.entries(manifest)) {
+  await seedOne(name, () => commonsFile(commonsFileName));
+}
+
+for (const [name, pageUrl] of Object.entries(flickrManifest)) {
+  await seedOne(name, () => flickrFile(pageUrl));
 }
 
 console.log(`done. ${uploaded} uploaded, ${skipped} skipped.`);

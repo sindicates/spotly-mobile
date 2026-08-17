@@ -20,7 +20,7 @@
  * no special-casing at the call site.
  */
 
-import { countWords } from '@/lib/reviews';
+import { countWords } from '@/domain/reviews';
 
 /** Returns an error message to show, or null when the value passes. */
 export type Validator = (value: string) => string | null;

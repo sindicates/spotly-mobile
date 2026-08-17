@@ -24,6 +24,7 @@ Use `npx expo install` for anything React-Native-adjacent, never bare `npm insta
 | Location | `expo-location`, foreground only. Used by the Map tab (MAP-4). |
 | Maps | `react-native-maps`. Apple Maps on iOS (no key). Google Maps on Android needs a Maps SDK key for a device/store build. |
 | Haptics | `expo-haptics`. Screens call `src/lib/haptics.ts`; they never import the package. Web is a no-op. |
+| Toasts | [`react-native-toast-message`](https://github.com/calintamas/react-native-toast-message). Screens call `src/lib/toast.ts`; they never import the package. Host is `AppToast` at the root. |
 | Build | EAS Build → custom development build. Internal distribution + TestFlight. |
 
 ---
@@ -47,6 +48,8 @@ MMKV v4 is Nitro-based: it needs `react-native-nitro-modules` (a peer dependency
 **Maps.** `react-native-maps`, not `expo-maps` (alpha). Apple Maps on iOS needs no key. Android Google Maps needs a Maps SDK key in the `react-native-maps` config plugin for a store or physical-device build; iPhone-first is enough to ship the tab. This is a native module — rebuild the dev client after install (`npx expo run:ios`).
 
 **Haptics.** `expo-haptics` talks to the Taptic Engine on iOS and the vibrator on Android. Android `VIBRATE` is added by the package. Intensity and when-to-fire live in `src/lib/haptics.ts` so a screen cannot pick a heavier impact than another. The helpers no-op on web (and therefore during Node prerender) and swallow failures — Low Power Mode and a user-disabled Taptic Engine must not break a press handler. There is no in-app toggle; the OS setting is enough.
+
+**Toasts.** [`react-native-toast-message`](https://github.com/calintamas/react-native-toast-message) is JS-only — no native rebuild. The default layouts hardcode colour, so `AppToast` replaces them with token-based ones. Screens call `showToast` / `showErrorToast` in `src/lib/toast.ts` the same way they call haptics helpers, and never the library. The host is the last child of the root layout so it paints above the navigator.
 
 **Orientation.** Portrait, iPhone only (`supportsTablet: false`).
 

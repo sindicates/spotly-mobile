@@ -228,8 +228,9 @@ Regenerate types after any migration: `npm run gen:types`.
 ## Seed & reference data
 
 - **`buildings` is reference data, not seed** — populated by migration `20260814194500`, so it's present in every environment (60 rows). It's a required field on the add-spot form, so an empty table is a dead end, not a thin catalog.
-- **`building_images` is reference data too**, but the files live in Storage, not in git. `npm run db:images` (`scripts/seed-building-images.mjs`) downloads Wikimedia Commons thumbs, uploads them, and upserts the rows. Buildings with no freely licensed photo stay `image_path = null`.
+- **`building_images` is reference data too**, but the files live in Storage, not in git. `npm run db:images` (`scripts/seed-building-images.mjs`) downloads Wikimedia Commons thumbs (and a few CC-BY Flickr photos where Commons has no match), uploads them, and upserts the rows. Buildings with no freely licensed photo stay `image_path = null`.
 - **`supabase/seed.sql`** — local fake data (spots, reviews, check-ins, favourites, one open report), applied only by `supabase db reset`. It leaves `reviews.embedding` **null on purpose**: a fabricated vector ranks as a real match and makes `min_similarity` impossible to calibrate. Seeded reviews are invisible to `search_reviews` until a backfill indexes them (the grant migration above is what lets that run).
+- **`scripts/seed-catalog.sql`** — idempotent catalog seed for the hosted project (`npm run db:seed-catalog`), also loaded after `seed.sql` on local reset. Same eight seed accounts; extra spots in buildings that already have photos; does not overwrite student-created rows. Still leaves embeddings null — follow with `npm run db:embeddings`.
 
 ---
 

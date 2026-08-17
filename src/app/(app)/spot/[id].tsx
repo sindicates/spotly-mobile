@@ -19,9 +19,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { useReviewInteractions } from '@/hooks/use-review-interactions';
 import { useSpotDetail } from '@/hooks/use-spot-detail';
-import { addFavorite, removeFavorite } from '@/lib/favorites';
+import { addFavorite, removeFavorite } from '@/domain/favorites';
 import { error as hapticError, success, warning } from '@/lib/haptics';
-import { checkIn, isRateLimitError, type OccupancyReading, type OccupancyStatus } from '@/lib/occupancy';
+import { checkIn, isRateLimitError, type OccupancyReading, type OccupancyStatus } from '@/domain/occupancy';
 import { errorMessage } from '@/lib/utils';
 
 /**
