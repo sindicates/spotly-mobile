@@ -1,15 +1,17 @@
 import { router } from 'expo-router';
 import { HeartIcon } from 'lucide-react-native';
 import { useState } from 'react';
-import { FlatList, Pressable, View } from 'react-native';
+import { FlatList, View } from 'react-native';
 
 import { AmenityChips } from '@/components/amenity-chip';
+import { CardSkeleton } from '@/components/card-skeleton';
 import { EmptyState } from '@/components/empty-state';
+import { ErrorState } from '@/components/error-state';
 import { OccupancyPill } from '@/components/occupancy-pill';
 import { Screen } from '@/components/screen';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { useFavorites } from '@/hooks/use-favorites';
 import { removeFavorite, type FavoriteSpot } from '@/domain/favorites';
@@ -53,14 +55,10 @@ export default function Favorites() {
       <FlatList
         data={favorites.data ?? []}
         keyExtractor={(item) => item.spotId}
-        contentContainerClassName="gap-3 px-5 pb-10"
-        // The screen title used to come from the navigation header this tab
-        // replaced. It is in the list now, so it scrolls with the content.
-        ListHeaderComponent={
-          <Text variant="h2" className="border-b-0 pb-3 pt-2">
-            Favourites
-          </Text>
-        }
+        contentContainerClassName="gap-3 px-5 pb-10 pt-3"
+        // No in-page title: the Favourites tab already names this screen, and
+        // saying it twice in the same viewport is the app talking to itself.
+        // Home and Search settled this convention; Map and this now match.
         renderItem={({ item }) => (
           <FavoriteRow
             spot={item}
@@ -73,18 +71,14 @@ export default function Favorites() {
           favorites.loading ? (
             <View className="gap-3">
               {[0, 1, 2].map((i) => (
-                <Skeleton key={i} className="h-24 w-full rounded-lg" />
+                <CardSkeleton key={i} />
               ))}
             </View>
           ) : favorites.error ? (
-            <View className="items-center gap-3 py-12">
-              <Text variant="muted" className="text-center">
-                We couldn&apos;t load your saved spots.
-              </Text>
-              <Button variant="outline" size="sm" onPress={favorites.refetch}>
-                <Text>Try again</Text>
-              </Button>
-            </View>
+            <ErrorState
+              message="We couldn't load your saved spots."
+              onRetry={favorites.refetch}
+            />
           ) : (
             <EmptyState
               title="No saved spots yet"
@@ -108,7 +102,7 @@ type FavoriteRowProps = {
 
 function FavoriteRow({ spot, removing, onOpen, onUnsave }: FavoriteRowProps) {
   return (
-    <Pressable
+    <Card
       onPress={() => {
         // A raw navigation Pressable is not a primitive, so it buzzes itself.
         press();
@@ -116,7 +110,7 @@ function FavoriteRow({ spot, removing, onOpen, onUnsave }: FavoriteRowProps) {
       }}
       accessibilityRole="button"
       accessibilityLabel={`Open ${spot.areaName}`}
-      className="border-border bg-card active:bg-accent gap-3 rounded-lg border p-4">
+      className="gap-3 p-4">
       <View className="flex-row items-start justify-between gap-3">
         <View className="shrink gap-0.5">
           <Text className="font-semibold">{spot.areaName}</Text>
@@ -141,6 +135,6 @@ function FavoriteRow({ spot, removing, onOpen, onUnsave }: FavoriteRowProps) {
         <OccupancyPill reading={spot.occupancy} size="sm" />
         {spot.tags.length > 0 ? <AmenityChips tags={spot.tags} className="shrink" /> : null}
       </View>
-    </Pressable>
+    </Card>
   );
 }

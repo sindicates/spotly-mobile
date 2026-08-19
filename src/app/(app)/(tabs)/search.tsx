@@ -4,15 +4,15 @@ import { useState } from 'react';
 import { FlatList, View } from 'react-native';
 
 import { AmenityFilterChips } from '@/components/amenity-chip';
+import { CardSkeleton } from '@/components/card-skeleton';
 import { EmptyState } from '@/components/empty-state';
+import { ErrorState } from '@/components/error-state';
 import { ReportSheet } from '@/components/report-sheet';
 import { ReviewCard } from '@/components/review-card';
 import { Screen } from '@/components/screen';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Input } from '@/components/ui/input';
-import { Skeleton } from '@/components/ui/skeleton';
-import { Text } from '@/components/ui/text';
 import { useReviewInteractions } from '@/hooks/use-review-interactions';
 import { useSearch } from '@/hooks/use-search';
 import { AMENITY_TAGS, type AmenityTag } from '@/domain/amenities';
@@ -135,21 +135,14 @@ export default function Search() {
           ) : results.loading ? (
             <View className="gap-3">
               {[0, 1, 2].map((i) => (
-                <View key={i} className="overflow-hidden rounded-lg">
-                  <Skeleton className="aspect-video w-full" />
-                  <Skeleton className="h-32 w-full" />
-                </View>
+                <CardSkeleton key={i} photo />
               ))}
             </View>
           ) : results.error ? (
-            <View className="items-center gap-3 py-12">
-              <Text variant="muted" className="text-center">
-                {errorMessage(results.error, 'Search is unavailable right now.')}
-              </Text>
-              <Button variant="outline" size="sm" onPress={results.refetch}>
-                <Text>Try again</Text>
-              </Button>
-            </View>
+            <ErrorState
+              message={errorMessage(results.error, 'Search is unavailable right now.')}
+              onRetry={results.refetch}
+            />
           ) : (
             // SEARCH-4: zero strong matches is a plain answer, not weak results.
             <EmptyState

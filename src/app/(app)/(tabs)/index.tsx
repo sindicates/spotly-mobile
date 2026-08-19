@@ -3,13 +3,14 @@ import { PlusIcon } from 'lucide-react-native';
 import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { CardSkeleton } from '@/components/card-skeleton';
 import { EmptyState } from '@/components/empty-state';
+import { ErrorState } from '@/components/error-state';
 import { ReportSheet } from '@/components/report-sheet';
 import { ReviewDeck } from '@/components/review-deck';
 import { Screen } from '@/components/screen';
 import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { useReviewInteractions } from '@/hooks/use-review-interactions';
 import { useTrendingFeed } from '@/hooks/use-trending-feed';
@@ -59,25 +60,24 @@ export default function Home() {
     <Screen edges={['top']}>
       <View className="flex-1">
         {feed.loading && cards.length === 0 ? (
+          // Two layers, same as the real deck, so the stack doesn't assemble
+          // itself the moment the data lands.
           <View className="flex-1 px-5 pt-3">
-            <View className="min-h-0 flex-1">
+            <View className="min-h-0 flex-1" style={{ paddingBottom: 28 }}>
               <View
-                className="absolute inset-x-0 overflow-hidden rounded-lg"
+                className="absolute inset-0"
                 style={{ transform: [{ scale: 0.96 }, { translateY: 14 }] }}>
-                <Skeleton className="h-full w-full" />
+                <CardSkeleton photo fill />
               </View>
-              <Skeleton className="h-full w-full rounded-lg" />
+              <CardSkeleton photo fill />
             </View>
           </View>
         ) : feed.error && cards.length === 0 ? (
-          <View className="flex-1 items-center justify-center gap-3 px-5">
-            <Text variant="muted" className="text-center">
-              {errorMessage(feed.error, "We couldn't load the feed.")}
-            </Text>
-            <Button variant="outline" size="sm" onPress={feed.refetch}>
-              <Text>Try again</Text>
-            </Button>
-          </View>
+          <ErrorState
+            fill
+            message={errorMessage(feed.error, "We couldn't load the feed.")}
+            onRetry={feed.refetch}
+          />
         ) : cards.length === 0 ? (
           <EmptyState
             className="flex-1 justify-center"
@@ -93,6 +93,7 @@ export default function Home() {
             onOpenSpot={(spotId) => router.push(`/spot/${spotId}`)}
             onReport={interactions.openReport}
             onFavorite={onFavorite}
+            onAddSpot={() => router.push('/spot/new')}
           />
         )}
 

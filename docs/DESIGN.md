@@ -51,6 +51,15 @@ Two details that look like style and are not:
 | `accent` / `accent-foreground` | Selected filter chips, pressed states |
 | `destructive` | Report, delete, errors. Nothing else — it stays rare enough to mean something |
 | `border` / `input` / `ring` | Hairlines, field outlines, focus |
+| `shadow` | The elevation hue. Never used directly — see Elevation |
+
+### Surfaces are a ladder
+
+`muted` sits below `background`, which sits below `card`. Keeping that order is what makes a card look raised, and it is easy to break by nudging one lightness value.
+
+`background` and `card` were both pure white once. Nothing in the app cast a shadow, so a card was distinguished from the page by a single hairline and the whole interface read as flat. A surface can only look raised if there is something lower for it to be raised above.
+
+Dark mode inverts the arrangement: `card` is *lighter* than `background` there, because depth on a dark ground comes from lightness rather than shadow.
 
 ### Occupancy — the one semantic scale
 
@@ -91,9 +100,66 @@ Use the `Text` component's `variant`, not raw size classes, so the ramp changes 
 
 - Spacing is the default Tailwind scale in 4px steps. Prefer `gap-*` on a flex container over margins on children — margins collapse differently in Yoga than on the web, producing spacing that depends on child order.
 - Screen padding is `px-5`. Cards inside it use `p-4`.
-- Radius derives from `--radius` (0.75rem): `rounded-sm` / `rounded-md` / `rounded-lg` all compute from it, so one variable reshapes the app. Pills use `rounded-full`.
+- Radius derives from `--radius` (1rem): `rounded-sm` / `rounded-md` / `rounded-lg` all compute from it, so one variable reshapes the app. Cards use `rounded-card`, one step softer at `--radius + 0.25rem` — surfaces round harder than the controls sitting on them. Pills use `rounded-full`.
 - Hairlines use `border-hairline` — a true 1-device-pixel line. A plain `border` is heavier on high-density screens than the design implies.
 - Touch targets are at least 44pt. `Button size="sm"` is 36pt and needs padding around it in a dense row.
+
+---
+
+## Elevation
+
+Four levels, and a surface only ever sits on one. They live in `ELEVATION` in `src/lib/theme.ts` and reach the screen through the `Card` primitive's `elevation` prop.
+
+| Level | Where | Light |
+| --- | --- | --- |
+| `flat` | Inside something already raised — a row in a list, a panel in a form | No shadow, hairline only |
+| `resting` | The default. A card in a scrolling list | `0 2px 8px` at 6% |
+| `lifted` | Floating over other content — the deck's front card, the toast, the map legend | `0 8px 24px` at 10% |
+| `dragged` | Under the finger. Only the deck, and it animates into this rather than setting it | `0 16px 40px` at 16% |
+
+Three rules that are not preferences:
+
+- **One shadow per level.** Stacking two makes a card look like a sticker, and NativeWind's parser silently drops all but the first anyway.
+- **Never nest elevation.** A raised card inside a raised card is `card-in-card`; the inner one takes `flat`.
+- **Dark mode has no shadows at all.** Every level resolves to nothing there, because a shadow on a dark surface reads as a glow around the card rather than depth under it. Dark elevation is the surface ladder — see Colour.
+
+Elevation is a **prop, not a class**, because it is two different things on two platforms — an iOS shadow and an Android `elevation` number — and neither exists in dark mode. NativeWind's native preset also replaces Tailwind's shadow scale with its own values and pins `shadowOpacity` to 1, so `shadow-*` classes cannot express this.
+
+**Do not put `overflow-hidden` on a `Card`.** iOS draws the shadow outside the view's bounds, so clipping the view clips its shadow away. Clip the child that needs it — `ReviewCard` wraps just its photo in `rounded-t-card overflow-hidden`.
+
+---
+
+## Motion
+
+Three durations and three easings, in `src/lib/motion.ts`. Reach for a named value; if a moment genuinely needs a fourth, add it there rather than inline.
+
+| Token | Duration | For |
+| --- | --- | --- |
+| `DUR.micro` | 120ms | Press feedback, colour shifts |
+| `DUR.short` | 220ms | A card lifting, a badge appearing, a card leaving |
+| `DUR.long` | 420ms | Screens and sheets |
+
+`EASE.out` for things arriving, `EASE.in` for things leaving, `EASE.inOut` for toggles. Exits run at `exitOf(d)` — three-quarters of the entrance. `SPRING` is the single spring in the app, damped hard: an overshoot on UI state reads as a toy.
+
+Rules:
+
+- **Animate transform and opacity only.** Anything else runs on the JS thread and drops frames.
+- **One orchestrated entrance per screen, then stillness.** The spot page fades its sections in ~60ms apart and then stops. A page where everything animates on every scroll never settles.
+- **Motion explains or it goes.** If you cannot say what a transition tells the user, cut it.
+- **Every layout animation passes `REDUCE_MOTION`**, so the system accessibility setting is honoured without each call site remembering to check.
+- **Helpers called from a worklet must be worklets.** Gesture callbacks and `useAnimatedStyle` bodies run on the UI thread, and a plain function called from inside one throws at runtime — *"Tried to synchronously call a Remote Function"* — rather than failing to build. It survives typecheck and it survives `expo export`; only running the app catches it. Everything exported from `motion.ts` carries the directive for this reason. Reanimated's own `Easing.bezier` already is one; `Math.*` is available in both runtimes.
+
+The one shadow that animates is the deck's front card lifting under a drag. That is a physical gesture, and depth is what says the card has been picked up.
+
+---
+
+## Titles
+
+**A screen's name appears exactly once**, drawn by whichever chrome already owns it.
+
+- **Tab screens** are named by the tab. No in-page title — Map and Favourites used to print their own `h2` directly above the identical tab label.
+- **Pushed screens** are named by the native header.
+- **The spot page** is the exception, and deliberately: it keeps its `h3` heading, because a 24px title with the building under it is a better first line than a 17px one squeezed between two buttons. The header title fades in only once that heading has scrolled out of sight.
 
 ---
 
@@ -121,8 +187,9 @@ Add one only when a screen needs it:
 npx @react-native-reusables/cli@latest add <name> -y --styling-library nativewind
 ```
 
-Three with sharp edges:
+Four with sharp edges:
 
+- **`Card`** — every raised surface. Owns `bg-card`, `rounded-card`, the hairline border, and the platform shadow via `elevation`. Pass `onPress` to make the whole card the control instead of nesting a `Pressable`. Not from RNR; see Elevation for why elevation is a prop and why `overflow-hidden` must not go on it.
 - **`Icon`** — always `<Icon as={FlagIcon} size={16} className="text-muted-foreground" />`. The wrapper applies `cssInterop` so `className` reaches the SVG; a raw Lucide import ignores every class you give it.
 - **`Dialog`** — renders through the `PortalHost` in the root layout. React Native has no DOM portals. If an overlay appears behind the screen that opened it, the host is missing or is not the last child of the providers.
 - **`Button`** — fires `press()` on `onPressIn` unless `haptic={false}`. Use the opt-out only when the same gesture will immediately fire a stronger outcome haptic (`success` / `warning` / `error`).
@@ -137,14 +204,17 @@ Three with sharp edges:
 | `AmenityFilterChips` | AMEN-3 — selection is a hard constraint on search, never a ranking weight |
 | `ReviewCard` | REV-2, REV-5, REV-12, SEARCH-2 — no author, no avatar, tap expands in place, a separate control navigates. The cover photo is the building's, shown only when `showSpotContext` is on. `fill` is home-deck only: the card stretches and the photo takes leftover height; search and the carousel stay intrinsic |
 | `ReviewCarousel` | REV-4 — a spot's reviews as a horizontal peek carousel. Wraps `ReviewCard` with `showSpotContext` off rather than defining a second review surface |
-| `ReviewDeck` | SPOT-1, FAV-1 — the home feed as a stacked swipeable deck. Swipe right saves the spot. Same `ReviewCard` with `fill`, spot context on. The two outcomes are named in a line above the stack and stamped on the card as the drag passes halfway |
+| `ReviewDeck` | SPOT-1, FAV-1 — the home feed as a stacked swipeable deck. Swipe right saves the spot. Same `ReviewCard` with `fill`, spot context on. The two outcomes are named in a line above the stack and stamped on the card as the drag passes halfway. Three layers at descending elevation; the front one lifts under the finger. Swiping the last card away reaches an ending rather than springing back forever |
 | `ReviewBodyField` | REV-10, REV-11 — the prompt and the 15-word counter, in one place |
-| `EmptyState` | SEARCH-4 — title, description, action |
+| `EmptyState` | SEARCH-4 — title, description, action. The query worked and there was nothing there |
+| `ErrorState` | Its sibling: we do not know. Always carries the retry — a dead end with no way out is a bug, not a state |
+| `CardSkeleton` | Loading in the shape of the real card, built on `Card` so it inherits the same surface and elevation |
+| `AppImage` | Every photo. Fades in rather than popping, and a null source is a muted block of the same shape — never a stand-in photo of somewhere else (REV-12) |
 | `ReportSheet` | MOD-1/2/3 — the one modal; optional reason, files a report, never removes the card client-side |
 | `Screen` | Safe area and background, decided once |
 | `AppToast` | Root toast host. Token-based layouts so the library's hardcoded colours cannot leak. Screens call `lib/toast.ts` |
 
-Domain types mirroring database enums live in `src/lib/` — `occupancy.ts`, `amenities.ts`, `reviews.ts`. Keep them in sync with the migration.
+Domain types mirroring database enums live in `src/domain/` — `occupancy.ts`, `amenities.ts`, `reviews.ts`. Keep them in sync with the migration.
 
 Build a new component when a rule needs enforcing, or when the same composition appears on a third screen. Two occurrences are a coincidence. A single screen's layout belongs in the screen file.
 
@@ -169,7 +239,7 @@ It is native, which means **NativeWind cannot reach it**. Colours come from `THE
 
 Two consequences for screens:
 
-- **Tab screens have no navigation header.** Favourites (and search, when it has one) put the title in the screen as an `h2`. Home does not — the tab label is enough, and the deck needs the height.
+- **Tab screens have no navigation header and no in-page title.** The tab label names the screen; printing it again directly above is the app talking to itself. See Titles.
 - **Tab screens drop the `bottom` safe-area edge** on lists, so content can scroll under the iOS 26 material bar. A control *pinned* to the bottom of a tab — Add a spot under the home deck — has to pad for the bar itself (`insets.bottom` plus the bar overlay). The bar does not consume the scene's bottom the way a stacked navigation header consumes the top.
 
 Anything pushed on top — spot detail, the two forms, the content policy — keeps its native header and covers the tab bar. A destination gets a tab; an action does not, which is why "Add a spot" is a button under the home deck, not a fifth tab.

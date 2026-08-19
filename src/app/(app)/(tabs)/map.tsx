@@ -2,16 +2,18 @@ import { router } from 'expo-router';
 import { LocateFixedIcon } from 'lucide-react-native';
 import { useColorScheme } from 'nativewind';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, Linking, Platform, Pressable, View, type ViewStyle } from 'react-native';
+import { FlatList, Linking, Platform, View, type ViewStyle } from 'react-native';
 import type MapView from 'react-native-maps';
 
 import { AmenityChips } from '@/components/amenity-chip';
+import { CardSkeleton } from '@/components/card-skeleton';
 import { EmptyState } from '@/components/empty-state';
+import { ErrorState } from '@/components/error-state';
 import { OccupancyPill } from '@/components/occupancy-pill';
 import { Screen } from '@/components/screen';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
 import { useMapSpots } from '@/hooks/use-map-spots';
 import { useUserLocation } from '@/hooks/use-user-location';
@@ -48,13 +50,19 @@ const Marker = Maps?.Marker as typeof import('react-native-maps').Marker | undef
 
 type ThemeTokens = (typeof THEME)[keyof typeof THEME];
 
-/** Shared by the map markers and the legend so the two cannot drift. */
+/**
+ * Shared by the map markers and the legend so the two cannot drift.
+ *
+ * The unsaved fill used to be `THEME.light.card` unconditionally, which painted
+ * a white dot with a near-white border on a dark map. It follows the scheme now
+ * like everything else.
+ */
 function pinDotStyle(favorite: boolean, theme: ThemeTokens, size = 18): ViewStyle {
   return {
     height: size,
     width: size,
     borderRadius: size / 2,
-    backgroundColor: favorite ? theme.occupancyEmpty : THEME.light.card,
+    backgroundColor: favorite ? theme.occupancyEmpty : theme.card,
     borderWidth: 2,
     borderColor: favorite ? theme.occupancyEmpty : theme.foreground,
   };
@@ -119,11 +127,9 @@ export default function MapTab() {
   }
 
   return (
+    // No in-page title: the Map tab already names this screen. Home and Search
+    // set that convention and Favourites matches it.
     <Screen edges={['top']}>
-      <Text variant="h2" className="border-b-0 px-5 pb-2 pt-2">
-        Map
-      </Text>
-
       <View className="flex-1">
         {NativeMap && Marker ? (
           <View className="flex-1">
@@ -216,18 +222,11 @@ export default function MapTab() {
             catalog.loading ? (
               <View className="gap-3">
                 {[0, 1, 2].map((i) => (
-                  <Skeleton key={i} className="h-24 w-full rounded-lg" />
+                  <CardSkeleton key={i} />
                 ))}
               </View>
             ) : catalog.error ? (
-              <View className="items-center gap-3 py-12">
-                <Text variant="muted" className="text-center">
-                  We couldn&apos;t load nearby spots.
-                </Text>
-                <Button variant="outline" size="sm" onPress={catalog.refetch}>
-                  <Text>Try again</Text>
-                </Button>
-              </View>
+              <ErrorState message="We couldn't load nearby spots." onRetry={catalog.refetch} />
             ) : (
               <EmptyState
                 title="No spots on the map yet"
@@ -288,13 +287,15 @@ function BuildingMarker({ pin, theme, onPress }: BuildingPinProps) {
 
 function PinLegend({ theme }: { theme: ThemeTokens }) {
   return (
-    <View
+    // Floats over the map, so it takes the raised level rather than resting.
+    <Card
+      elevation="lifted"
       accessible
       accessibilityLabel="Pin colours: green is favourites, white is other buildings"
-      className="border-border bg-card absolute bottom-3 left-3 gap-1.5 rounded-lg border px-3 py-2">
+      className="absolute bottom-3 left-3 gap-1.5 px-3 py-2">
       <LegendRow favorite theme={theme} label="Favourites" />
       <LegendRow favorite={false} theme={theme} label="Other" />
-    </View>
+    </Card>
   );
 }
 
@@ -317,7 +318,10 @@ function LegendRow({
 
 function MapSpotRow({ spot, selected, onOpen }: MapSpotRowProps) {
   return (
-    <Pressable
+    // `flat` — these rows sit in a list under the map, not floating above it,
+    // and a shadow on every row would read as noise rather than depth.
+    <Card
+      elevation="flat"
       onPress={() => {
         press();
         onOpen();
@@ -325,10 +329,7 @@ function MapSpotRow({ spot, selected, onOpen }: MapSpotRowProps) {
       accessibilityRole="button"
       accessibilityLabel={`Open ${spot.areaName}`}
       accessibilityState={{ selected }}
-      className={cn(
-        'border-border gap-3 rounded-lg border p-4',
-        selected ? 'bg-accent' : 'bg-card active:bg-accent'
-      )}>
+      className={cn('gap-3 p-4', selected && 'bg-accent')}>
       <View className="flex-row items-start justify-between gap-3">
         <View className="shrink gap-0.5">
           <Text className="font-semibold">{spot.areaName}</Text>
@@ -343,6 +344,6 @@ function MapSpotRow({ spot, selected, onOpen }: MapSpotRowProps) {
         <OccupancyPill reading={spot.occupancy} size="sm" />
         {spot.tags.length > 0 ? <AmenityChips tags={spot.tags} className="shrink" /> : null}
       </View>
-    </Pressable>
+    </Card>
   );
 }

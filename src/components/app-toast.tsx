@@ -2,6 +2,7 @@ import { CircleAlertIcon, HeartIcon } from 'lucide-react-native';
 import { View } from 'react-native';
 import Toast, { type ToastConfig } from 'react-native-toast-message';
 
+import { Card } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 
@@ -28,13 +29,14 @@ function ToastBody({
   if (!text1) return null;
 
   return (
-    <View className="border-border bg-card mx-5 flex-row items-center gap-3 rounded-lg border p-4">
+    // Floats over whatever screen raised it, so it takes the higher level.
+    <Card elevation="lifted" className="mx-5 flex-row items-center gap-3 p-4">
       <Icon as={icon} size={18} className={iconClassName} />
       <View className="shrink gap-0.5">
         <Text className="font-semibold">{text1}</Text>
         {text2 ? <Text variant="muted">{text2}</Text> : null}
       </View>
-    </View>
+    </Card>
   );
 }
 

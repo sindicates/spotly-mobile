@@ -24,8 +24,13 @@
 
 @layer base {
   :root {
-    /* Surfaces */
-    --background: 0 0% 100%;
+    /**
+     * Surfaces are a ladder, not a pair. `background` is the page, `card` sits
+     * above it, `muted` sits below it. They were all pure white once, which is
+     * why every card in the app read as flat: a surface can only look raised if
+     * there is something lower for it to be raised above.
+     */
+    --background: 210 28% 96%;
     --foreground: 222 24% 11%;
     --card: 0 0% 100%;
     --card-foreground: 222 24% 11%;
@@ -35,20 +40,29 @@
     /* Brand — matches the splash screen blue in app.json (#208AEF) */
     --primary: 209 87% 53%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 210 40% 96%;
+    --secondary: 210 32% 93%;
     --secondary-foreground: 222 24% 16%;
-    --muted: 210 33% 96%;
+    --muted: 210 30% 93%;
     --muted-foreground: 215 16% 45%;
-    --accent: 205 91% 95%;
+    --accent: 205 80% 92%;
     --accent-foreground: 209 87% 30%;
     --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
     /* Lines and focus */
-    --border: 214 24% 90%;
-    --input: 214 24% 90%;
+    --border: 214 22% 88%;
+    --input: 214 22% 88%;
     --ring: 209 87% 53%;
-    --radius: 0.75rem;
+    --radius: 1rem;
+
+    /**
+     * Elevation. Tinted toward the anchor hue rather than pure black — a
+     * neutral-black shadow over a cool paper reads as dirt, not depth.
+     *
+     * The alpha lives in the component, not here: `Card` composes this hue with
+     * a per-level opacity. See src/components/ui/card.tsx.
+     */
+    --shadow: 215 45% 18%;
 
     /**
      * Occupancy — the one place Spotly uses colour to carry meaning.
@@ -67,29 +81,40 @@
     --occupancy-packed-surface: 0 86% 96%;
   }
 
+  /**
+   * Dark mode elevates with lightness, not shadow.
+   *
+   * A drop shadow on a dark surface reads as a glow around the card rather than
+   * a shadow under it, so the ladder inverts: `card` is *lighter* than
+   * `background` and `muted` is darker than both, and the border carries the
+   * edge that the shadow carries in light mode. `Card` resolves every elevation
+   * level to no shadow here — the surface value is the depth cue.
+   */
   .dark:root {
     --background: 222 24% 7%;
     --foreground: 210 20% 96%;
-    --card: 222 22% 10%;
+    --card: 222 20% 13%;
     --card-foreground: 210 20% 96%;
-    --popover: 222 22% 10%;
+    --popover: 222 20% 13%;
     --popover-foreground: 210 20% 96%;
 
     --primary: 209 90% 61%;
     --primary-foreground: 222 40% 10%;
-    --secondary: 217 19% 17%;
+    --secondary: 217 18% 19%;
     --secondary-foreground: 210 20% 96%;
-    --muted: 217 19% 17%;
+    --muted: 217 19% 15%;
     --muted-foreground: 215 15% 65%;
-    --accent: 209 44% 20%;
+    --accent: 209 44% 23%;
     --accent-foreground: 205 90% 88%;
     --destructive: 0 62% 55%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 217 17% 22%;
-    --input: 217 17% 24%;
+    --border: 217 17% 26%;
+    --input: 217 17% 26%;
     --ring: 209 90% 61%;
-    --radius: 0.75rem;
+    --radius: 1rem;
+
+    --shadow: 222 40% 2%;
 
     --occupancy-empty: 152 52% 56%;
     --occupancy-empty-surface: 152 34% 15%;

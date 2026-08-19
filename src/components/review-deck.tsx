@@ -1,6 +1,6 @@
 import type { LucideIcon } from 'lucide-react-native';
 import { HeartIcon, XIcon } from 'lucide-react-native';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useLayoutEffect, useState } from 'react';
 import { useWindowDimensions, View } from 'react-native';
 import { Gesture, GestureDetector, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, {
@@ -13,11 +13,16 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
+import { useColorScheme } from 'nativewind';
+
+import { EmptyState } from '@/components/empty-state';
 import { ReviewCard } from '@/components/review-card';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import { selection } from '@/lib/haptics';
 import type { SpotReviewCard } from '@/domain/reviews';
+import { DUR, EASE, exitOf, SPRING } from '@/lib/motion';
+import { ELEVATION, type ElevationLevel } from '@/lib/theme';
 import { cn } from '@/lib/utils';
 
 /**
@@ -52,6 +57,11 @@ type ReviewDeckProps = {
   onReport: (reviewId: string) => void;
   /** FAV-1. Swipe-right on a card saves that card's spot. */
   onFavorite: (card: SpotReviewCard) => void;
+  /**
+   * Offered once the day's set runs out. Navigation belongs to the screen, so
+   * the deck asks rather than routing.
+   */
+  onAddSpot?: () => void;
 };
 
 export function ReviewDeck({
@@ -61,45 +71,91 @@ export function ReviewDeck({
   onOpenSpot,
   onReport,
   onFavorite,
+  onAddSpot,
 }: ReviewDeckProps) {
   const { width } = useWindowDimensions();
+  const { colorScheme } = useColorScheme();
+  const { lifted, dragged } = ELEVATION[colorScheme ?? 'light'];
+  // `index === cards.length` is the deck's ending, not an error — see the
+  // exhausted branch below.
   const [index, setIndex] = useState(0);
   const translateX = useSharedValue(0);
-  const indexSV = useSharedValue(0);
-  const countSV = useSharedValue(cards.length);
 
-  useEffect(() => {
-    indexSV.value = index;
-  }, [index, indexSV]);
+  // A refetch hands us a different day's set, and an index left over from the
+  // old one would open the new deck halfway through — or, worse, on its
+  // "that's everything" ending. Adjusting state during render on a changed
+  // input is the pattern `ReportSheet` uses for the same job; an effect here
+  // would render the wrong card once before correcting itself.
+  const deckKey = cards[0]?.reviewId ?? '';
+  const [prevDeckKey, setPrevDeckKey] = useState(deckKey);
+  if (deckKey !== prevDeckKey) {
+    setPrevDeckKey(deckKey);
+    setIndex(0);
+  }
 
-  useEffect(() => {
-    countSV.value = cards.length;
-    if (index >= cards.length) setIndex(Math.max(0, cards.length - 1));
-  }, [cards.length, countSV, index]);
+  /**
+   * The handoff between one card and the next, which has two hard frames in it.
+   *
+   * A shared value reaches the UI thread the instant it is assigned, but
+   * `setIndex` only *schedules* a render. So the reset and the swap cannot
+   * happen together, and whichever order you pick leaves one wrong frame:
+   *
+   * - Reset `translateX` first, then swap: the outgoing card snaps back to dead
+   *   centre still showing the review you just dismissed.
+   * - Swap first, then reset: the incoming card renders off screen, and because
+   *   the peek layer's `progress` is still 1 it is sitting centred at full size
+   *   — so you see the card *after* the next one, then the real one arrives over
+   *   it. Swipe again and it repeats one further along, which reads as the deck
+   *   jumping forward and back.
+   *
+   * The way out is to make the outgoing card invisible in the same UI-thread
+   * tick as the reset. Both writes below land together, before React has
+   * re-rendered: the stack settles into its resting arrangement with nothing in
+   * the front slot, and the new card fades into it once it mounts.
+   */
+  const frontOpacity = useSharedValue(1);
 
   const commit = useCallback(
     (direction: 1 | -1) => {
       const next = index + direction;
-      // The card has already flown off screen by the time this runs, so the
-      // reset has to happen whether or not there is another card to move to.
-      translateX.value = 0;
-      if (next < 0 || next >= cards.length) return;
-      selection();
+      // Clamped to `cards.length`, one past the last card: that position is the
+      // exhausted state, so the final swipe has somewhere to land.
+      if (next < 0 || next > cards.length) return;
       setIndex(next);
     },
-    [cards.length, index, translateX]
+    [cards.length, index],
   );
+
+  /** Fade the newly-mounted front card in, once it is actually the front card. */
+  useLayoutEffect(() => {
+    frontOpacity.value = withTiming(1, { duration: DUR.micro, easing: EASE.out });
+  }, [index, frontOpacity]);
 
   const favoriteCurrent = useCallback(() => {
     const card = cards[index];
     if (card) onFavorite(card);
   }, [cards, index, onFavorite]);
 
-  const saveAndAdvance = useCallback(() => {
-    favoriteCurrent();
-    commit(1);
-  }, [commit, favoriteCurrent]);
+  /**
+   * Fires the moment the swipe is decided rather than when the animation lands.
+   * The intent is already committed by then, and running a network write plus a
+   * haptic in the gap between the exit and the re-render was widening exactly
+   * the window the fix above closes. A haptic on release also simply feels
+   * right, where one 180 ms later feels like lag.
+   */
+  const commitSwipe = useCallback(
+    (save: boolean) => {
+      if (save) favoriteCurrent();
+      selection();
+    },
+    [favoriteCurrent],
+  );
 
+  // `react-hooks/immutability` flags the shared-value writes in these worklets.
+  // It is a known false positive — writing to a shared value from the UI thread
+  // is the entire mechanism Reanimated provides — and it fires whether the
+  // gesture is memoised or built here. Left as-is rather than adding this
+  // codebase's first eslint-disable for it.
   const pan = Gesture.Pan()
     // Let taps reach expand / Open spot / report. The deck only takes over once
     // the finger has clearly started a horizontal swipe.
@@ -110,53 +166,76 @@ export function ReviewDeck({
     .onEnd((event) => {
       const farEnough =
         Math.abs(event.translationX) > SWIPE_DISTANCE || Math.abs(event.velocityX) > SWIPE_VELOCITY;
-      const hasNext = indexSV.value < countSV.value - 1;
+
+      if (!farEnough) {
+        translateX.value = withSpring(0, SPRING);
+        return;
+      }
+
+      // The last card leaves like every other one. It used to spring back
+      // instead, which meant the final card could never be dismissed and the
+      // deck had no ending.
       const swipedRight = event.translationX > 0;
-      const swipedLeft = event.translationX < 0;
-
-      if (farEnough && swipedRight) {
-        if (hasNext) {
-          translateX.value = withTiming(width * 1.2, { duration: 180 }, (finished) => {
-            if (finished) runOnJS(saveAndAdvance)();
-          });
-        } else {
-          // Last card: save in place rather than flying off onto an empty stack.
-          runOnJS(favoriteCurrent)();
-          translateX.value = withSpring(0, { damping: 18, stiffness: 180 });
+      runOnJS(commitSwipe)(swipedRight);
+      translateX.value = withTiming(
+        width * (swipedRight ? 1.2 : -1.2),
+        { duration: exitOf(DUR.short), easing: EASE.in },
+        (finished) => {
+          if (!finished) return;
+          // These three run in one UI-thread tick, and the order matters: the
+          // card is hidden and re-centred *before* React is told to advance, so
+          // there is no frame where a stale card or the wrong peek layer is
+          // sitting in the front slot. See the note on `frontOpacity`.
+          frontOpacity.value = 0;
+          translateX.value = 0;
+          runOnJS(commit)(1);
         }
-        return;
-      }
-
-      if (farEnough && swipedLeft && hasNext) {
-        translateX.value = withTiming(-width * 1.2, { duration: 180 }, (finished) => {
-          if (finished) runOnJS(commit)(1);
-        });
-        return;
-      }
-
-      translateX.value = withSpring(0, { damping: 18, stiffness: 180 });
+      );
     });
 
-  const frontStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: translateX.value },
-      {
-        rotate: `${interpolate(
-          translateX.value,
-          [-width, 0, width],
-          [-10, 0, 10],
-          Extrapolation.CLAMP
-        )}deg`,
-      },
-    ],
-  }));
+  /**
+   * The front card lifts off the stack as it is dragged — the shadow deepens
+   * with the finger and settles back when the swipe is abandoned. This is the
+   * one place in the app where a shadow animates, and it earns it: the gesture
+   * is a physical one, and depth is what says the card has been picked up.
+   *
+   * Dark mode has no shadow to grow, so this quietly resolves to nothing there.
+   */
+  const frontStyle = useAnimatedStyle(() => {
+    const lift = interpolate(
+      Math.abs(translateX.value),
+      [0, SWIPE_DISTANCE],
+      [0, 1],
+      Extrapolation.CLAMP,
+    );
+    return {
+      opacity: frontOpacity.value,
+      transform: [
+        { translateX: translateX.value },
+        {
+          rotate: `${interpolate(
+            translateX.value,
+            [-width, 0, width],
+            [-10, 0, 10],
+            Extrapolation.CLAMP,
+          )}deg`,
+        },
+      ],
+      // Multiplied by opacity so the shadow disappears with the card during the
+      // handoff — a shadow with nothing casting it is very visible.
+      shadowOpacity:
+        (lifted.shadowOpacity + (dragged.shadowOpacity - lifted.shadowOpacity) * lift) *
+        frontOpacity.value,
+      shadowRadius: lifted.shadowRadius + (dragged.shadowRadius - lifted.shadowRadius) * lift,
+    };
+  });
 
   const nextStyle = useAnimatedStyle(() => {
     const progress = interpolate(
       Math.abs(translateX.value),
       [0, SWIPE_DISTANCE],
       [0, 1],
-      Extrapolation.CLAMP
+      Extrapolation.CLAMP,
     );
     return {
       transform: [
@@ -174,14 +253,18 @@ export function ReviewDeck({
   const saveBadgeStyle = useAnimatedStyle(() => ({
     opacity: interpolate(translateX.value, [0, BADGE_DISTANCE], [0, 1], Extrapolation.CLAMP),
     transform: [
-      { scale: interpolate(translateX.value, [0, BADGE_DISTANCE], [0.8, 1], Extrapolation.CLAMP) },
+      {
+        scale: interpolate(translateX.value, [0, BADGE_DISTANCE], [0.8, 1], Extrapolation.CLAMP),
+      },
     ],
   }));
 
   const skipBadgeStyle = useAnimatedStyle(() => ({
     opacity: interpolate(translateX.value, [-BADGE_DISTANCE, 0], [1, 0], Extrapolation.CLAMP),
     transform: [
-      { scale: interpolate(translateX.value, [-BADGE_DISTANCE, 0], [1, 0.8], Extrapolation.CLAMP) },
+      {
+        scale: interpolate(translateX.value, [-BADGE_DISTANCE, 0], [1, 0.8], Extrapolation.CLAMP),
+      },
     ],
   }));
 
@@ -189,7 +272,23 @@ export function ReviewDeck({
   const next = cards[index + 1];
   const afterNext = cards[index + 2];
 
-  if (!front) return null;
+  // Swiped through the whole set. Ending on a blank screen would read as a bug,
+  // and the day's set is finite by design (SPOT-1) — so say so, and offer the
+  // two things left to do.
+  if (!front) {
+    return (
+      <EmptyState
+        className="flex-1 justify-center"
+        title="That’s everything for today"
+        description="The set is seeded per day, so a fresh one lands tomorrow. Until then, you could add a spot nobody’s written up yet."
+        action={onAddSpot ? { label: 'Add a spot', onPress: onAddSpot } : undefined}
+        secondaryAction={{
+          label: 'Go through them again',
+          onPress: () => setIndex(0),
+        }}
+      />
+    );
+  }
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -210,70 +309,117 @@ export function ReviewDeck({
             card, and the stack reads as three loose cards rather than one.
           */}
           <View className="flex-1">
+            {/*
+              Each layer is keyed so it remounts when the deck advances. Without
+              a key React reuses the instance and swaps the card's props, and
+              you watch the review text re-wrap in place on a fully visible
+              card — the "malformed text" frame. A keyed layer arrives with its
+              text already laid out.
+
+              Elevation descends with the stack, so the three layers read as
+              three objects at three depths rather than one card with odd edges.
+            */}
             {afterNext ? (
               <View
+                key={afterNext.reviewId}
                 pointerEvents="none"
                 accessibilityElementsHidden
                 importantForAccessibility="no-hide-descendants"
-                className="absolute inset-0"
+                className="absolute inset-0 opacity-70"
                 style={{
-                  transform: [
-                    { scale: STACK_SCALE - 0.03 },
-                    { translateY: STACK_OFFSET * 2 },
-                  ],
+                  transform: [{ scale: STACK_SCALE - 0.03 }, { translateY: STACK_OFFSET * 2 }],
                 }}>
-                <DeckCard card={afterNext} onOpenSpot={onOpenSpot} onReport={onReport} />
+                <DeckCard
+                  card={afterNext}
+                  elevation="flat"
+                  onOpenSpot={onOpenSpot}
+                  onReport={onReport}
+                />
               </View>
             ) : null}
 
             {next ? (
               <Animated.View
+                key={next.reviewId}
                 pointerEvents="none"
                 accessibilityElementsHidden
                 importantForAccessibility="no-hide-descendants"
                 className="absolute inset-0"
                 style={nextStyle}>
-                <DeckCard card={next} onOpenSpot={onOpenSpot} onReport={onReport} />
+                <DeckCard
+                  card={next}
+                  elevation="resting"
+                  onOpenSpot={onOpenSpot}
+                  onReport={onReport}
+                />
               </Animated.View>
             ) : null}
 
             <View className="flex-1">
               <GestureDetector gesture={pan}>
+                {/*
+                  The wrapper carries the shadow, not the card inside it: iOS
+                  draws a shadow from the view's own background, and only a
+                  plain view can have its shadow animated by a worklet. The
+                  card is `flat` and sits exactly on top of it.
+                */}
+                {/*
+                  Deliberately NOT keyed. This view is the gesture's target, and
+                  remounting it on every advance tears the handler down and
+                  re-attaches it mid-swipe. The card *content* is keyed instead,
+                  one level in.
+                */}
                 <Animated.View
-                  key={front.reviewId}
                   collapsable={false}
-                  className="flex-1"
-                  style={frontStyle}
-                accessibilityHint="Swipe right to save this spot, left for the next review"
-                accessibilityActions={[
-                  { name: 'skip', label: 'Next review' },
-                  { name: 'favorite', label: 'Save to favourites' },
-                ]}
-                onAccessibilityAction={(event) => {
-                  if (event.nativeEvent.actionName === 'skip') commit(1);
-                  if (event.nativeEvent.actionName === 'favorite') saveAndAdvance();
-                }}>
-                <DeckCard
-                  card={front}
-                  expanded={isExpanded(front.reviewId)}
-                  onToggleExpand={onToggleExpand}
-                  onOpenSpot={onOpenSpot}
-                  onReport={onReport}
-                />
+                  className="bg-card rounded-card flex-1"
+                  style={[
+                    {
+                      shadowColor: lifted.shadowColor,
+                      shadowOffset: lifted.shadowOffset,
+                      elevation: lifted.elevation,
+                    },
+                    frontStyle,
+                  ]}
+                  accessibilityHint="Swipe right to save this spot, left for the next review"
+                  accessibilityActions={[
+                    { name: 'skip', label: 'Next review' },
+                    { name: 'favorite', label: 'Save to favourites' },
+                  ]}
+                  onAccessibilityAction={(event) => {
+                    const { actionName } = event.nativeEvent;
+                    if (actionName !== 'skip' && actionName !== 'favorite') return;
+                    commitSwipe(actionName === 'favorite');
+                    commit(1);
+                  }}>
+                  {/*
+                    Keyed here rather than on the gesture target above, so the
+                    review mounts fresh — text laid out before it is visible —
+                    without disturbing the gesture.
+                  */}
+                  <View key={front.reviewId} className="flex-1">
+                    <DeckCard
+                      card={front}
+                      elevation="flat"
+                      expanded={isExpanded(front.reviewId)}
+                      onToggleExpand={onToggleExpand}
+                      onOpenSpot={onOpenSpot}
+                      onReport={onReport}
+                    />
+                  </View>
 
-                <Animated.View
-                  pointerEvents="none"
-                  className="absolute left-4 top-4"
-                  style={saveBadgeStyle}>
-                  <SwipeBadge icon={HeartIcon} label="Save" tone="save" />
-                </Animated.View>
+                  <Animated.View
+                    pointerEvents="none"
+                    className="absolute left-4 top-4"
+                    style={saveBadgeStyle}>
+                    <SwipeBadge icon={HeartIcon} label="Save" tone="save" />
+                  </Animated.View>
 
-                <Animated.View
-                  pointerEvents="none"
-                  className="absolute right-4 top-4"
-                  style={skipBadgeStyle}>
-                  <SwipeBadge icon={XIcon} label="Skip" tone="skip" />
-                </Animated.View>
+                  <Animated.View
+                    pointerEvents="none"
+                    className="absolute right-4 top-4"
+                    style={skipBadgeStyle}>
+                    <SwipeBadge icon={XIcon} label="Skip" tone="skip" />
+                  </Animated.View>
                 </Animated.View>
               </GestureDetector>
             </View>
@@ -301,8 +447,8 @@ function SwipeBadge({
   return (
     <View
       className={cn(
-        'bg-card/95 flex-row items-center gap-1.5 rounded-full border px-3 py-1.5',
-        tone === 'save' ? 'border-primary' : 'border-border'
+        'bg-card/95 border-hairline flex-row items-center gap-1.5 rounded-full px-3 py-1.5',
+        tone === 'save' ? 'border-primary' : 'border-border',
       )}>
       <Icon as={icon} className={accent} size={16} />
       <Text className={cn('font-semibold', accent)}>{label}</Text>
@@ -312,12 +458,15 @@ function SwipeBadge({
 
 function DeckCard({
   card,
+  elevation,
   expanded = false,
   onToggleExpand,
   onOpenSpot,
   onReport,
 }: {
   card: SpotReviewCard;
+  /** The stack's depth cue. The front card's shadow lives on its wrapper. */
+  elevation: ElevationLevel;
   /** Only the front card expands; the peek layers are always collapsed. */
   expanded?: boolean;
   onToggleExpand?: (reviewId: string) => void;
@@ -327,6 +476,7 @@ function DeckCard({
   return (
     <ReviewCard
       fill
+      elevation={elevation}
       body={card.body}
       areaName={card.areaName}
       building={card.building}

@@ -24,6 +24,10 @@ const textVariants = cva(
           Platform.select({ web: 'scroll-m-20 first:mt-0' })
         ),
         h3: cn('text-2xl font-semibold tracking-tight', Platform.select({ web: 'scroll-m-20' })),
+        // The name of a screen. `h2` sizing without `h2`'s underline: that rule
+        // separates a heading from prose beneath it, and a screen title has no
+        // prose beneath it — both call sites were switching it back off.
+        screenTitle: 'text-3xl font-semibold tracking-tight',
         h4: cn('text-xl font-semibold tracking-tight', Platform.select({ web: 'scroll-m-20' })),
         p: 'mt-3 leading-7 sm:mt-6',
         blockquote: 'mt-4 border-l-2 pl-3 italic sm:mt-6 sm:pl-6',
@@ -51,6 +55,7 @@ const ROLE: Partial<Record<TextVariant, Role>> = {
   h2: 'heading',
   h3: 'heading',
   h4: 'heading',
+  screenTitle: 'heading',
   blockquote: Platform.select({ web: 'blockquote' as Role }),
   code: Platform.select({ web: 'code' as Role }),
 };
@@ -58,6 +63,7 @@ const ROLE: Partial<Record<TextVariant, Role>> = {
 const ARIA_LEVEL: Partial<Record<TextVariant, string>> = {
   h1: '1',
   h2: '2',
+  screenTitle: '2',
   h3: '3',
   h4: '4',
 };

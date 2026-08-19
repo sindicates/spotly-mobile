@@ -1,18 +1,19 @@
-import { Image } from 'expo-image';
-import { FlagIcon } from 'lucide-react-native';
-import { cssInterop } from 'nativewind';
+import { ChevronRightIcon, FlagIcon } from 'lucide-react-native';
 import { Pressable, View, type StyleProp, type ViewStyle } from 'react-native';
-
-cssInterop(Image, { className: 'style' });
+import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 
 import { AmenityChips } from '@/components/amenity-chip';
+import { AppImage } from '@/components/app-image';
 import { OccupancyPill } from '@/components/occupancy-pill';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { Icon } from '@/components/ui/icon';
 import { Text } from '@/components/ui/text';
 import type { AmenityTag } from '@/domain/amenities';
 import { selection } from '@/lib/haptics';
 import type { OccupancyReading } from '@/domain/occupancy';
+import { DUR, EASE } from '@/lib/motion';
+import type { ElevationLevel } from '@/lib/theme';
 import { cn } from '@/lib/utils';
 
 /**
@@ -77,6 +78,11 @@ type ReviewCardProps = {
    * `className` so they keep resolving from tokens.
    */
   style?: StyleProp<ViewStyle>;
+  /**
+   * How far off the page this card sits. The deck's front card floats above
+   * two peek layers; a search result sits in a list. Defaults to `resting`.
+   */
+  elevation?: ElevationLevel;
 };
 
 export function ReviewCard({
@@ -95,87 +101,128 @@ export function ReviewCard({
   className,
   fill = false,
   style,
+  elevation = 'resting',
 }: ReviewCardProps) {
+  /**
+   * One press signal for the whole card, not four small ones.
+   *
+   * The card had no tactile response at all before — a tap either reflowed the
+   * text or pushed a screen, with nothing in between to say the touch landed.
+   * A 1.5% recede is enough; anything larger starts to look like the card is
+   * being squashed.
+   */
+  const pressed = useSharedValue(0);
+  const pressStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: 1 - pressed.value * 0.015 }],
+  }));
+  const setPressed = (down: boolean) => {
+    pressed.value = withTiming(down ? 1 : 0, {
+      duration: DUR.micro,
+      easing: EASE.out,
+    });
+  };
+
+  /**
+   * The card recedes a beat before the push begins, so the spot page reads as
+   * something this card opened rather than a screen that happened to appear.
+   * The delay is one frame's worth — long enough to see, short enough that the
+   * tap still feels instant.
+   */
+  const openSpot = () => {
+    if (!onOpenSpot) return;
+    setPressed(true);
+    setTimeout(() => {
+      setPressed(false);
+      onOpenSpot();
+    }, DUR.micro);
+  };
+
+  const photoClass = cn('w-full', fill ? 'min-h-0 flex-1' : 'aspect-video');
+
   return (
-    <View
-      style={style}
-      className={cn(
-        'border-border bg-card overflow-hidden rounded-lg border',
-        fill && 'flex-1',
-        className
-      )}>
-      {showSpotContext ? (
-        imageUrl ? (
-          <Image
-            source={{ uri: imageUrl }}
-            className={cn('bg-muted w-full', fill ? 'min-h-0 flex-1' : 'aspect-video')}
-            contentFit="cover"
-            accessibilityLabel={`${building} exterior`}
-          />
-        ) : (
-          <View
-            className={cn('bg-muted w-full', fill ? 'min-h-0 flex-1' : 'aspect-video')}
-            accessibilityLabel={`${building}, no photo`}
-          />
-        )
-      ) : null}
-
-      <View className="gap-3 p-4">
-        <Pressable
-          onPress={() => {
-            if (!onToggleExpand) return;
-            selection();
-            onToggleExpand();
-          }}
-          accessibilityRole="button"
-          accessibilityLabel={expanded ? 'Collapse review' : 'Expand review'}>
-          <Text
-            className="text-card-foreground leading-6"
-            numberOfLines={expanded ? undefined : 4}>
-            {body}
-          </Text>
-        </Pressable>
-
+    // The scale lives on a wrapper so the whole card moves together. Putting it
+    // on the Card itself would mean animating the view that casts the shadow,
+    // and the shadow would scale with it.
+    <Animated.View style={[style, pressStyle]} className={cn(fill && 'flex-1')}>
+      <Card elevation={elevation} className={cn(fill && 'flex-1', className)}>
         {showSpotContext ? (
-          <View className="gap-2">
-            <View className="flex-row items-center justify-between gap-3">
-              <View className="shrink gap-0.5">
-                <Text className="font-semibold">{areaName}</Text>
-                <Text variant="muted">
-                  {building}
-                  {typeof reviewCount === 'number'
-                    ? ` · ${reviewCount} ${reviewCount === 1 ? 'review' : 'reviews'}`
-                    : ''}
-                </Text>
+          // The photo is clipped by its own wrapper rather than by the card:
+          // `overflow-hidden` on the card would clip the card's shadow away too.
+          <View className={cn('rounded-t-card overflow-hidden', fill && 'min-h-0 flex-1')}>
+            <AppImage
+              uri={imageUrl}
+              className={photoClass}
+              accessibilityLabel={imageUrl ? `${building} exterior` : `${building}, no photo`}
+            />
+          </View>
+        ) : null}
+
+        {/* Tighter under the footer rule than above it, so the card has an
+          internal rhythm rather than one evenly-padded stack. */}
+        <View className="gap-3 p-4 pb-3">
+          <Pressable
+            onPress={() => {
+              if (!onToggleExpand) return;
+              selection();
+              onToggleExpand();
+            }}
+            onPressIn={() => onToggleExpand && setPressed(true)}
+            onPressOut={() => setPressed(false)}
+            accessibilityRole="button"
+            accessibilityLabel={expanded ? 'Collapse review' : 'Expand review'}>
+            <Text
+              className="text-card-foreground leading-6"
+              numberOfLines={expanded ? undefined : 4}>
+              {body}
+            </Text>
+          </Pressable>
+
+          {showSpotContext ? (
+            <View className="gap-2">
+              <View className="flex-row items-center justify-between gap-3">
+                <View className="shrink gap-0.5">
+                  <Text className="font-semibold">{areaName}</Text>
+                  <Text variant="muted">
+                    {building}
+                    {typeof reviewCount === 'number'
+                      ? ` · ${reviewCount} ${reviewCount === 1 ? 'review' : 'reviews'}`
+                      : ''}
+                  </Text>
+                </View>
+                <OccupancyPill reading={occupancy} size="sm" />
               </View>
-              <OccupancyPill reading={occupancy} size="sm" />
+
+              {tags.length > 0 ? <AmenityChips tags={tags} /> : null}
             </View>
+          ) : null}
 
-            {tags.length > 0 ? <AmenityChips tags={tags} /> : null}
-          </View>
-        ) : null}
-
-        {onOpenSpot || onReport ? (
-          <View className="flex-row items-center justify-between">
-            {onOpenSpot ? (
-              <Button variant="link" size="sm" className="px-0" onPress={onOpenSpot}>
-                <Text>Open spot</Text>
-              </Button>
-            ) : (
-              <View />
-            )}
-            {onReport ? (
-              <Button
-                variant="ghost"
-                size="icon"
-                onPress={onReport}
-                accessibilityLabel="Report this review">
-                <Icon as={FlagIcon} className="text-muted-foreground" size={16} />
-              </Button>
-            ) : null}
-          </View>
-        ) : null}
-      </View>
-    </View>
+          {onOpenSpot || onReport ? (
+            // A rule under the content, so the two controls read as the card's
+            // footer rather than as one more item in the stack above them.
+            <View className="border-border border-t-hairline -mx-4 flex-row items-center justify-between px-1 pt-1">
+              {onOpenSpot ? (
+                // Was a bare text link, which made the card's whole reason for
+                // existing the quietest thing on it.
+                <Button variant="ghost" size="sm" onPress={openSpot}>
+                  <Text className="text-primary font-medium">Open spot</Text>
+                  <Icon as={ChevronRightIcon} className="text-primary" size={16} />
+                </Button>
+              ) : (
+                <View />
+              )}
+              {onReport ? (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onPress={onReport}
+                  accessibilityLabel="Report this review">
+                  <Icon as={FlagIcon} className="text-muted-foreground" size={16} />
+                </Button>
+              ) : null}
+            </View>
+          ) : null}
+        </View>
+      </Card>
+    </Animated.View>
   );
 }

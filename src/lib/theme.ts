@@ -17,7 +17,7 @@ import { DarkTheme, DefaultTheme, type Theme } from 'expo-router';
  */
 export const THEME = {
   light: {
-    background: 'hsl(0 0% 100%)',
+    background: 'hsl(210 28% 96%)',
     foreground: 'hsl(222 24% 11%)',
     card: 'hsl(0 0% 100%)',
     cardForeground: 'hsl(222 24% 11%)',
@@ -25,18 +25,20 @@ export const THEME = {
     popoverForeground: 'hsl(222 24% 11%)',
     primary: 'hsl(209 87% 53%)',
     primaryForeground: 'hsl(0 0% 100%)',
-    secondary: 'hsl(210 40% 96%)',
+    secondary: 'hsl(210 32% 93%)',
     secondaryForeground: 'hsl(222 24% 16%)',
-    muted: 'hsl(210 33% 96%)',
+    muted: 'hsl(210 30% 93%)',
     mutedForeground: 'hsl(215 16% 45%)',
-    accent: 'hsl(205 91% 95%)',
+    accent: 'hsl(205 80% 92%)',
     accentForeground: 'hsl(209 87% 30%)',
     destructive: 'hsl(0 72% 51%)',
     destructiveForeground: 'hsl(0 0% 100%)',
-    border: 'hsl(214 24% 90%)',
-    input: 'hsl(214 24% 90%)',
+    border: 'hsl(214 22% 88%)',
+    input: 'hsl(214 22% 88%)',
     ring: 'hsl(209 87% 53%)',
-    radius: '0.75rem',
+    radius: '1rem',
+    /** Elevation hue. `Card` composes it with a per-level alpha. */
+    shadow: 'hsl(215 45% 18%)',
     occupancyEmpty: 'hsl(152 58% 34%)',
     occupancyEmptySurface: 'hsl(150 52% 94%)',
     occupancySome: 'hsl(32 90% 40%)',
@@ -47,24 +49,25 @@ export const THEME = {
   dark: {
     background: 'hsl(222 24% 7%)',
     foreground: 'hsl(210 20% 96%)',
-    card: 'hsl(222 22% 10%)',
+    card: 'hsl(222 20% 13%)',
     cardForeground: 'hsl(210 20% 96%)',
-    popover: 'hsl(222 22% 10%)',
+    popover: 'hsl(222 20% 13%)',
     popoverForeground: 'hsl(210 20% 96%)',
     primary: 'hsl(209 90% 61%)',
     primaryForeground: 'hsl(222 40% 10%)',
-    secondary: 'hsl(217 19% 17%)',
+    secondary: 'hsl(217 18% 19%)',
     secondaryForeground: 'hsl(210 20% 96%)',
-    muted: 'hsl(217 19% 17%)',
+    muted: 'hsl(217 19% 15%)',
     mutedForeground: 'hsl(215 15% 65%)',
-    accent: 'hsl(209 44% 20%)',
+    accent: 'hsl(209 44% 23%)',
     accentForeground: 'hsl(205 90% 88%)',
     destructive: 'hsl(0 62% 55%)',
     destructiveForeground: 'hsl(0 0% 100%)',
-    border: 'hsl(217 17% 22%)',
-    input: 'hsl(217 17% 24%)',
+    border: 'hsl(217 17% 26%)',
+    input: 'hsl(217 17% 26%)',
     ring: 'hsl(209 90% 61%)',
-    radius: '0.75rem',
+    radius: '1rem',
+    shadow: 'hsl(222 40% 2%)',
     occupancyEmpty: 'hsl(152 52% 56%)',
     occupancyEmptySurface: 'hsl(152 34% 15%)',
     occupancySome: 'hsl(38 88% 60%)',
@@ -73,6 +76,74 @@ export const THEME = {
     occupancyPackedSurface: 'hsl(0 38% 17%)',
   },
 } as const;
+
+/**
+ * Elevation. Four levels, and a card only ever sits on one of them.
+ *
+ * This lives in TypeScript rather than as a `shadow-*` class because NativeWind's
+ * native preset replaces Tailwind's shadow scale with its own values, pins
+ * `shadowOpacity` to 1 so the alpha has to ride on the colour, and emits the
+ * Android `elevation` prop only when compiling for Android. One object that both
+ * platforms read is easier to keep honest than a class that means two things.
+ *
+ * Each level is a *single* shadow. Stacking two is how a card starts looking
+ * like a sticker, and NativeWind would drop the second one anyway.
+ *
+ * Dark mode gets `NONE` at every level — see the note in global.css. Depth there
+ * comes from `--card` sitting lighter than `--background`, because a shadow on a
+ * dark surface reads as a glow.
+ */
+export type ElevationLevel = 'flat' | 'resting' | 'lifted' | 'dragged';
+
+type ElevationStyle = {
+  shadowColor: string;
+  shadowOffset: { width: number; height: number };
+  shadowOpacity: number;
+  shadowRadius: number;
+  /** Android ignores colour and offset; it interpolates its own from this. */
+  elevation: number;
+};
+
+const NO_SHADOW: ElevationStyle = {
+  shadowColor: 'transparent',
+  shadowOffset: { width: 0, height: 0 },
+  shadowOpacity: 0,
+  shadowRadius: 0,
+  elevation: 0,
+};
+
+export const ELEVATION: Record<'light' | 'dark', Record<ElevationLevel, ElevationStyle>> = {
+  light: {
+    flat: NO_SHADOW,
+    resting: {
+      shadowColor: THEME.light.shadow,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.06,
+      shadowRadius: 8,
+      elevation: 2,
+    },
+    lifted: {
+      shadowColor: THEME.light.shadow,
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.1,
+      shadowRadius: 24,
+      elevation: 6,
+    },
+    dragged: {
+      shadowColor: THEME.light.shadow,
+      shadowOffset: { width: 0, height: 16 },
+      shadowOpacity: 0.16,
+      shadowRadius: 40,
+      elevation: 12,
+    },
+  },
+  dark: {
+    flat: NO_SHADOW,
+    resting: NO_SHADOW,
+    lifted: NO_SHADOW,
+    dragged: NO_SHADOW,
+  },
+};
 
 /** Feeds `<ThemeProvider>` so navigation chrome matches the app surface. */
 export const NAV_THEME: Record<'light' | 'dark', Theme> = {

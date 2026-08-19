@@ -1,14 +1,13 @@
-import { Image } from 'expo-image';
 import { router, Stack, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { HeartIcon } from 'lucide-react-native';
-import { cssInterop } from 'nativewind';
 import { useCallback, useRef, useState } from 'react';
 import { ScrollView, View } from 'react-native';
-
-cssInterop(Image, { className: 'style' });
+import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 
 import { AmenityChips } from '@/components/amenity-chip';
+import { AppImage } from '@/components/app-image';
 import { CheckInControl } from '@/components/check-in-control';
+import { ErrorState } from '@/components/error-state';
 import { OccupancyPill } from '@/components/occupancy-pill';
 import { ReportSheet } from '@/components/report-sheet';
 import { ReviewCarousel } from '@/components/review-carousel';
@@ -17,11 +16,17 @@ import { Button } from '@/components/ui/button';
 import { Icon } from '@/components/ui/icon';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Text } from '@/components/ui/text';
+import { DUR, exitOf, REDUCE_MOTION } from '@/lib/motion';
 import { useReviewInteractions } from '@/hooks/use-review-interactions';
 import { useSpotDetail } from '@/hooks/use-spot-detail';
 import { addFavorite, removeFavorite } from '@/domain/favorites';
 import { error as hapticError, success, warning } from '@/lib/haptics';
-import { checkIn, isRateLimitError, type OccupancyReading, type OccupancyStatus } from '@/domain/occupancy';
+import {
+  checkIn,
+  isRateLimitError,
+  type OccupancyReading,
+  type OccupancyStatus,
+} from '@/domain/occupancy';
 import { errorMessage } from '@/lib/utils';
 
 /**
@@ -39,6 +44,21 @@ export default function SpotDetail() {
   const detail = useSpotDetail(id);
   const interactions = useReviewInteractions();
 
+  /**
+   * The spot's name is drawn once. It used to render in the native header *and*
+   * as a heading two lines below it, which read as a stutter.
+   *
+   * The page keeps the heading, because a 24px title with the building under it
+   * is a better first line than a 17px one squeezed between two buttons — and
+   * the header picks it up only once that heading has scrolled out of sight, so
+   * you always know where you are and never read it twice at once.
+   *
+   * `headerTitle` always returns a wrapper and fades its contents in and out
+   * inside it. Returning null from `headerTitle` outright is not something the
+   * native stack handles reliably.
+   */
+  const [titleInHeader, setTitleInHeader] = useState(false);
+
   // Overrides layered on the loaded snapshot. Null means "no local change yet".
   const [checkedIn, setCheckedIn] = useState<OccupancyReading>(null);
   const [favOverride, setFavOverride] = useState<boolean | null>(null);
@@ -53,7 +73,7 @@ export default function SpotDetail() {
     useCallback(() => {
       if (mounted.current) detail.refetch();
       else mounted.current = true;
-    }, [detail])
+    }, [detail]),
   );
 
   const data = detail.data;
@@ -106,9 +126,9 @@ export default function SpotDetail() {
         <Stack.Screen options={{ title: '' }} />
         <View className="gap-6 px-5 py-4">
           <Skeleton className="h-6 w-40" />
-          <Skeleton className="aspect-video w-full rounded-lg" />
-          <Skeleton className="h-16 w-full rounded-lg" />
-          <Skeleton className="h-56 w-full rounded-lg" />
+          <Skeleton className="rounded-card aspect-video w-full" />
+          <Skeleton className="rounded-card h-16 w-full" />
+          <Skeleton className="rounded-card h-56 w-full" />
         </View>
       </Screen>
     );
@@ -118,14 +138,11 @@ export default function SpotDetail() {
     return (
       <Screen edges={['bottom']}>
         <Stack.Screen options={{ title: '' }} />
-        <View className="flex-1 items-center justify-center gap-3 px-8">
-          <Text variant="muted" className="text-center">
-            {errorMessage(detail.error, "We couldn't load this spot.")}
-          </Text>
-          <Button variant="outline" size="sm" onPress={detail.refetch}>
-            <Text>Try again</Text>
-          </Button>
-        </View>
+        <ErrorState
+          fill
+          message={errorMessage(detail.error, "We couldn't load this spot.")}
+          onRetry={detail.refetch}
+        />
       </Screen>
     );
   }
@@ -155,7 +172,20 @@ export default function SpotDetail() {
     <Screen edges={['bottom']}>
       <Stack.Screen
         options={{
-          title: spot.area_name,
+          title: '',
+          headerTitle: () => (
+            <View>
+              {titleInHeader ? (
+                <Animated.View
+                  entering={FadeIn.duration(DUR.micro).reduceMotion(REDUCE_MOTION)}
+                  exiting={FadeOut.duration(exitOf(DUR.micro)).reduceMotion(REDUCE_MOTION)}>
+                  <Text variant="large" numberOfLines={1}>
+                    {spot.area_name}
+                  </Text>
+                </Animated.View>
+              ) : null}
+            </View>
+          ),
           headerRight: () => (
             <Button
               variant="ghost"
@@ -174,48 +204,65 @@ export default function SpotDetail() {
         }}
       />
 
-      <ScrollView contentContainerClassName="gap-6 px-5 py-4">
-        <View className="gap-1">
-          <Text variant="h3">{spot.area_name}</Text>
-          <Text variant="muted">
-            {spot.building}
-            {` · ${spot.review_count} ${spot.review_count === 1 ? 'review' : 'reviews'}`}
-          </Text>
-        </View>
+      {/*
+        One orchestrated arrival, and only one. Each section fades up a beat
+        after the one above it, so the page assembles top-down in under 400ms
+        and then stays still — the alternative, animating on every scroll, is a
+        page that never settles. `REDUCE_MOTION` collapses all of it to a
+        crossfade when the system asks.
+      */}
+      <ScrollView
+        contentContainerClassName="gap-6 px-5 py-4"
+        scrollEventThrottle={16}
+        onScroll={(event) => {
+          const y = event.nativeEvent.contentOffset.y;
+          // Two thresholds, so a scroll resting on the boundary cannot make the
+          // header title flicker on and off.
+          setTitleInHeader((showing) => (showing ? y > 28 : y > 44));
+        }}>
+        <Arrive index={0}>
+          <View className="gap-1">
+            <Text variant="h3">{spot.area_name}</Text>
+            <Text variant="muted">
+              {spot.building}
+              {` · ${spot.review_count} ${spot.review_count === 1 ? 'review' : 'reviews'}`}
+            </Text>
+          </View>
+        </Arrive>
 
-        {spot.imageUrl ? (
-          <Image
-            source={{ uri: spot.imageUrl }}
-            className="bg-muted aspect-video w-full rounded-lg"
-            contentFit="cover"
-            accessibilityLabel={`${spot.building} exterior`}
+        <Arrive index={1}>
+          <AppImage
+            uri={spot.imageUrl}
+            className="rounded-card aspect-video w-full"
+            accessibilityLabel={
+              spot.imageUrl ? `${spot.building} exterior` : `${spot.building}, no photo`
+            }
           />
-        ) : (
-          <View
-            className="bg-muted aspect-video w-full rounded-lg"
-            accessibilityLabel={`${spot.building}, no photo`}
-          />
-        )}
+        </Arrive>
 
         {/* Occupancy: the live pill and the two-tap check-in (OCC-1). */}
-        <View className="gap-3">
-          <OccupancyPill reading={occupancy} />
-          <CheckInControl
-            onCheckIn={onCheckIn}
-            pending={pendingStatus !== null}
-            pendingStatus={pendingStatus}
-            error={checkInError}
-          />
-        </View>
+        <Arrive index={2}>
+          <View className="gap-3">
+            <OccupancyPill reading={occupancy} />
+            <CheckInControl
+              onCheckIn={onCheckIn}
+              pending={pendingStatus !== null}
+              pendingStatus={pendingStatus}
+              error={checkInError}
+            />
+          </View>
+        </Arrive>
 
         {/* Amenity tags, read-only — locked by the first reviewer (AMEN-2). */}
         {spot.amenity_tags.length > 0 ? (
-          <View className="gap-2">
-            <Text variant="small" className="text-muted-foreground">
-              What it&apos;s got
-            </Text>
-            <AmenityChips tags={spot.amenity_tags} />
-          </View>
+          <Arrive index={3}>
+            <View className="gap-2">
+              <Text variant="small" className="text-muted-foreground">
+                What it&apos;s got
+              </Text>
+              <AmenityChips tags={spot.amenity_tags} />
+            </View>
+          </Arrive>
         ) : null}
 
         {/* Reviews (REV-4): a horizontal carousel, tap a card to expand in place. */}
@@ -252,5 +299,17 @@ export default function SpotDetail() {
 
       <ReportSheet reviewId={interactions.reportReviewId} onClose={interactions.closeReport} />
     </Screen>
+  );
+}
+
+/** One step of the page's arrival. `index` is its place in the sequence. */
+function Arrive({ index, children }: { index: number; children: React.ReactNode }) {
+  return (
+    <Animated.View
+      entering={FadeIn.delay(index * 60)
+        .duration(DUR.short)
+        .reduceMotion(REDUCE_MOTION)}>
+      {children}
+    </Animated.View>
   );
 }

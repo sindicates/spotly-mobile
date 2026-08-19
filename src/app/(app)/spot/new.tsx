@@ -7,6 +7,7 @@ import { AmenityChips, AmenityFilterChips } from '@/components/amenity-chip';
 import { ReviewBodyField } from '@/components/review-body-field';
 import { Screen } from '@/components/screen';
 import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -208,7 +209,7 @@ export default function AddSpot() {
             </Text>
 
             {matches.length > 0 ? (
-              <View className="border-border bg-card mt-1 gap-1 rounded-lg border p-3">
+              <Card elevation="flat" className="mt-1 gap-1 p-3">
                 <Text variant="small" className="text-muted-foreground">
                   Already listed — did you mean one of these?
                 </Text>
@@ -223,11 +224,11 @@ export default function AddSpot() {
                     </Text>
                   </Pressable>
                 ))}
-              </View>
+              </Card>
             ) : null}
 
             {existing ? (
-              <View className="border-border bg-card mt-1 gap-2 rounded-lg border p-3">
+              <Card elevation="flat" className="mt-1 gap-2 p-3">
                 <Text variant="small">
                   Reviewing {existing.area_name} in {existing.building}
                 </Text>
@@ -237,7 +238,7 @@ export default function AddSpot() {
                 <Button variant="ghost" size="sm" className="self-start" onPress={clearExisting}>
                   <Text>That&apos;s not it</Text>
                 </Button>
-              </View>
+              </Card>
             ) : null}
           </View>
 

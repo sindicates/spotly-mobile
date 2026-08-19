@@ -52,6 +52,10 @@ module.exports = {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
         },
+        // For `shadow-shadow/20` on the two portalled surfaces that float but
+        // are not `Card`s. Everything else gets its depth from `ELEVATION` in
+        // src/lib/theme.ts — see src/components/ui/card.tsx.
+        shadow: 'hsl(var(--shadow))',
         // Occupancy is the only domain-semantic colour scale in the app.
         // There is deliberately no `unknown` entry — see src/global.css.
         occupancy: {
@@ -67,6 +71,9 @@ module.exports = {
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
+        // Cards round harder than controls. Deriving it from --radius rather
+        // than typing 20px keeps one variable in charge of the app's shape.
+        card: 'calc(var(--radius) + 0.25rem)',
       },
       borderWidth: {
         hairline: hairlineWidth(),
