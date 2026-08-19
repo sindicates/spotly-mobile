@@ -46,6 +46,8 @@ const SWIPE_DISTANCE = 110;
 const SWIPE_VELOCITY = 900;
 const STACK_OFFSET = 14;
 const STACK_SCALE = 0.96;
+/** The third layer, one step further back again. */
+const THIRD_SCALE = 0.93;
 /** How far the finger travels before the intent badges are fully opaque. */
 const BADGE_DISTANCE = 80;
 
@@ -109,11 +111,20 @@ export function ReviewDeck({
    *   jumping forward and back.
    *
    * The way out is to make the outgoing card invisible in the same UI-thread
-   * tick as the reset. Both writes below land together, before React has
-   * re-rendered: the stack settles into its resting arrangement with nothing in
-   * the front slot, and the new card fades into it once it mounts.
+   * tick as the reset, so the front slot is simply empty while the swap happens
+   * and neither a stale card nor the wrong peek layer can occupy it.
+   *
+   * That needs two shared values rather than one, because the front card and
+   * the stack behind it have to reset at *different* moments. `translateX` has
+   * to be back at zero before React advances, or the incoming card mounts off
+   * screen. The stack must NOT reset then: the peek card has risen to full size
+   * during the swipe, and dropping it back to 0.96 in that same tick is visible
+   * as the next card deflating and re-inflating. So `peekProgress` holds its
+   * raised position through the handoff and resets afterwards, once the card
+   * that rose has become the front card and a new one has taken the peek slot.
    */
   const frontOpacity = useSharedValue(1);
+  const peekProgress = useSharedValue(0);
 
   const commit = useCallback(
     (direction: 1 | -1) => {
@@ -126,10 +137,19 @@ export function ReviewDeck({
     [cards.length, index],
   );
 
-  /** Fade the newly-mounted front card in, once it is actually the front card. */
+  /**
+   * The other half of the handoff, after React has advanced.
+   *
+   * Both writes are instant, not animated, and they belong together: the card
+   * that was the peek is now the front, so it becomes visible in its new slot at
+   * exactly the size it already had, and the card that just moved up into the
+   * peek slot drops to the resting stack position behind it. Fading either one
+   * would show the other through it.
+   */
   useLayoutEffect(() => {
-    frontOpacity.value = withTiming(1, { duration: DUR.micro, easing: EASE.out });
-  }, [index, frontOpacity]);
+    frontOpacity.value = 1;
+    peekProgress.value = 0;
+  }, [index, frontOpacity, peekProgress]);
 
   const favoriteCurrent = useCallback(() => {
     const card = cards[index];
@@ -162,13 +182,21 @@ export function ReviewDeck({
     .activeOffsetX([-20, 20])
     .onUpdate((event) => {
       translateX.value = event.translationX;
+      peekProgress.value = interpolate(
+        Math.abs(event.translationX),
+        [0, SWIPE_DISTANCE],
+        [0, 1],
+        Extrapolation.CLAMP
+      );
     })
     .onEnd((event) => {
       const farEnough =
         Math.abs(event.translationX) > SWIPE_DISTANCE || Math.abs(event.velocityX) > SWIPE_VELOCITY;
 
       if (!farEnough) {
+        // Abandoned. The stack settles back down with the card.
         translateX.value = withSpring(0, SPRING);
+        peekProgress.value = withSpring(0, SPRING);
         return;
       }
 
@@ -176,16 +204,23 @@ export function ReviewDeck({
       // instead, which meant the final card could never be dismissed and the
       // deck had no ending.
       const swipedRight = event.translationX > 0;
+      const exit = { duration: exitOf(DUR.short), easing: EASE.in };
       runOnJS(commitSwipe)(swipedRight);
+
+      // A fast flick can commit from a short drag, so finish raising the stack
+      // rather than leaving the next card mid-rise when it becomes the front.
+      peekProgress.value = withTiming(1, exit);
+
       translateX.value = withTiming(
         width * (swipedRight ? 1.2 : -1.2),
-        { duration: exitOf(DUR.short), easing: EASE.in },
+        exit,
         (finished) => {
           if (!finished) return;
-          // These three run in one UI-thread tick, and the order matters: the
-          // card is hidden and re-centred *before* React is told to advance, so
-          // there is no frame where a stale card or the wrong peek layer is
-          // sitting in the front slot. See the note on `frontOpacity`.
+          // One UI-thread tick, and the order matters: the outgoing card is
+          // hidden and re-centred *before* React is told to advance, so nothing
+          // stale can be sitting in the front slot when the new card mounts.
+          // `peekProgress` is deliberately untouched — it stays raised until the
+          // layout effect, so the next card never visibly shrinks.
           frontOpacity.value = 0;
           translateX.value = 0;
           runOnJS(commit)(1);
@@ -230,20 +265,28 @@ export function ReviewDeck({
     };
   });
 
-  const nextStyle = useAnimatedStyle(() => {
-    const progress = interpolate(
-      Math.abs(translateX.value),
-      [0, SWIPE_DISTANCE],
-      [0, 1],
-      Extrapolation.CLAMP,
-    );
-    return {
-      transform: [
-        { scale: STACK_SCALE + (1 - STACK_SCALE) * progress },
-        { translateY: STACK_OFFSET * (1 - progress) },
-      ],
-    };
-  });
+  /**
+   * The stack shifts up as one. Each layer animates toward the resting position
+   * of the layer in front of it, so by the time the swipe completes every card
+   * is already where it needs to be and the advance is only a change of which
+   * card is in which slot — nothing has to jump into place afterwards.
+   *
+   * Driven by `peekProgress`, not `translateX`: the two reset at different
+   * points in the handoff. See the note on `frontOpacity`.
+   */
+  const nextStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: STACK_SCALE + (1 - STACK_SCALE) * peekProgress.value },
+      { translateY: STACK_OFFSET * (1 - peekProgress.value) },
+    ],
+  }));
+
+  const afterNextStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: THIRD_SCALE + (STACK_SCALE - THIRD_SCALE) * peekProgress.value },
+      { translateY: STACK_OFFSET * (2 - peekProgress.value) },
+    ],
+  }));
 
   /**
    * The two intent badges. Each one only reacts to its own direction, so the
@@ -320,22 +363,20 @@ export function ReviewDeck({
               three objects at three depths rather than one card with odd edges.
             */}
             {afterNext ? (
-              <View
+              <Animated.View
                 key={afterNext.reviewId}
                 pointerEvents="none"
                 accessibilityElementsHidden
                 importantForAccessibility="no-hide-descendants"
                 className="absolute inset-0 opacity-70"
-                style={{
-                  transform: [{ scale: STACK_SCALE - 0.03 }, { translateY: STACK_OFFSET * 2 }],
-                }}>
+                style={afterNextStyle}>
                 <DeckCard
                   card={afterNext}
                   elevation="flat"
                   onOpenSpot={onOpenSpot}
                   onReport={onReport}
                 />
-              </View>
+              </Animated.View>
             ) : null}
 
             {next ? (
