@@ -45,7 +45,7 @@ export default function RootLayout() {
 }
 
 function RootNavigator() {
-  const { session, onboardingComplete, loading } = useSession();
+  const { session, judgeMode, onboardingComplete, loading } = useSession();
 
   useEffect(() => {
     if (!loading) SplashScreen.hide();
@@ -69,7 +69,7 @@ function RootNavigator() {
         order. The three guards below are mutually exclusive, so exactly one is
         live at any moment.
       */}
-      <Stack.Protected guard={!session}>
+      <Stack.Protected guard={!session && !judgeMode}>
         <Stack.Screen name="(auth)/sign-in" />
       </Stack.Protected>
 
@@ -92,7 +92,7 @@ function RootNavigator() {
         screens render under it with `edges` dropping `top`. The spot page sets
         its own title from the loaded area name.
       */}
-      <Stack.Protected guard={!!session && onboardingComplete}>
+      <Stack.Protected guard={judgeMode || (!!session && onboardingComplete)}>
         <Stack.Screen name="(app)/(tabs)" />
         <Stack.Screen name="(app)/spot/[id]" options={{ headerShown: true, title: '' }} />
         <Stack.Screen

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { router } from 'expo-router';
 import { KeyboardAvoidingView, Platform, View } from 'react-native';
 
 import { FieldError } from '@/components/field-error';
@@ -12,6 +13,7 @@ import { error as hapticError, success } from '@/lib/haptics';
 import { supabase } from '@/lib/supabase';
 import { errorMessage } from '@/lib/utils';
 import { caseEmail } from '@/domain/validation';
+import { useSession } from '@/lib/session';
 
 /**
  * AUTH-1..3. One screen for both signup and sign-in — there is no account to
@@ -47,12 +49,14 @@ function callbackURL(): string {
 }
 
 export default function SignIn() {
+  const { enterJudgeMode } = useSession();
   // The `.edu` check is a `useField` validator now (domain/validation.ts) — the
   // canonical regex and message live there, so this screen no longer carries its
   // own copy. Emptiness stays the disabled button's job, not the validator's.
   const email = useField({ validators: [caseEmail()] });
   const [sentTo, setSentTo] = useState('');
   const [sending, setSending] = useState(false);
+  const [enteringJudgeMode, setEnteringJudgeMode] = useState(false);
   // Server-side rejections (rate limit, a rule the client can't see) share the
   // field's message slot and take precedence — the server enforces, so when the
   // two disagree it is this form that is out of date.
@@ -92,6 +96,33 @@ export default function SignIn() {
       setServerError(errorMessage(cause, "We couldn't send that link. Check your connection."));
     } finally {
       setSending(false);
+    }
+  }
+
+  async function handleJudgePreview() {
+    if (enteringJudgeMode) return;
+
+    setServerError('');
+    setEnteringJudgeMode(true);
+
+    try {
+      // Anonymous auth gives each judge a separate authenticated identity. The
+      // server still derives every author from auth.uid(), just like students.
+      const { error: authError } = await supabase.auth.signInAnonymously();
+      if (authError) {
+        hapticError();
+        setServerError(authError.message);
+        return;
+      }
+
+      success();
+      enterJudgeMode();
+      router.replace('/');
+    } catch (cause) {
+      hapticError();
+      setServerError(errorMessage(cause, "We couldn't open judge access. Check your connection."));
+    } finally {
+      setEnteringJudgeMode(false);
     }
   }
 
@@ -165,6 +196,14 @@ export default function SignIn() {
         */}
         <Button className="mt-4" onPress={handleSend} disabled={!address || sending}>
           <Text>{sending ? 'Sending…' : 'Send me a link'}</Text>
+        </Button>
+
+        <Button
+          variant="outline"
+          className="mt-3"
+          onPress={handleJudgePreview}
+          disabled={enteringJudgeMode}>
+          <Text>{enteringJudgeMode ? 'Opening judge access…' : "I'm a judge"}</Text>
         </Button>
 
         <Text variant="muted" className="mt-3">

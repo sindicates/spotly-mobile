@@ -26,8 +26,9 @@ tables carry them — `spots.created_by`, `reviews.author_id`, `check_ins.author
 
 Base tables `spots`, `reviews`, `check_ins`, `reports` are **fully revoked** from
 `anon` and `authenticated`, and their RLS has zero policies — so even a mistaken
-future `grant` still denies every row. `anon` reads nothing at all; the `.edu` gate
-is worthless if the catalog is public anyway.
+future `grant` still denies every row. A signed-out `anon` client reads nothing;
+an anonymous judge session uses Supabase's `authenticated` role and is therefore
+subject to the same RLS and RPC boundaries as a student account.
 
 ---
 
@@ -141,12 +142,18 @@ Not callable by clients — they run on the database's own events.
 
 ### Auth hook — the `.edu` gate
 
-`before_user_created_hook` rejects any signup whose email isn't `@case.edu`, at the
-`auth.users` boundary. This is the **real** gate; the client's `caseEmail()`
+`before_user_created_hook` rejects any student signup whose email isn't `@case.edu`,
+at the `auth.users` boundary. Anonymous judge sign-ins are permitted separately
+and do not carry an email. This is the **real** gate; the client's `caseEmail()`
 validator ([input-validation.md](input-validation.md)) is only the affordance.
 Wired via `[auth.hook.before_user_created]` in
 [`config.toml`](../../supabase/config.toml) locally, and **Authentication → Hooks**
 in the dashboard remotely. Granted `execute` to `supabase_auth_admin`.
+
+Anonymous sign-ins must also be enabled in the hosted project's Auth settings
+(`enable_anonymous_sign_ins`). The local setting is checked into
+[`config.toml`](../../supabase/config.toml); pushing that config and the pending
+migration is part of deploying judge access.
 
 ---
 

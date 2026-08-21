@@ -10,7 +10,7 @@ Related: [tech stack](../TECH_STACK.md) · [onboarding](onboarding.md)
 
 | ID | Requirement |
 | --- | --- |
-| AUTH-1 | Signup requires an email address on the `case.edu` domain. Non-`case.edu` addresses are rejected at entry. |
+| AUTH-1 | Student signup requires an email address on the `case.edu` domain. Non-`case.edu` addresses are rejected at entry; judge preview uses an anonymous Supabase session instead. |
 | AUTH-2 | Verification is by magic link. No password is set or stored. |
 | AUTH-3 | An account consists of an ID and a verified email. No display name, avatar, or profile page exists. |
 | AUTH-4 | Account ID is never exposed to other users through any surface, including API responses. |
@@ -45,9 +45,10 @@ Magic link only, no passwords.
 
 > Decision note: the PRD's `.edu` gate and the landing page's "CWRU only" conflict. Resolved toward **`case.edu` only** — it matches the landing page's "CWRU only" claim and keeps the gate meaningful as a trust signal.
 >
-> This does **not** solve judge access — a judge on a `stellic.com` address fails the `case.edu` rule. Judges get in via the demo video plus a pre-made test account. See [PATHFINDERS.md](../PATHFINDERS.md#judge-access-spotly-specific).
+> ~~This does **not** solve judge access — a judge on a `stellic.com` address fails the `case.edu` rule. Judges get in via the demo video plus a pre-made test account.~~ **Superseded 2026-08-21:** judges use the "I'm a judge" button to enter a temporary anonymous Supabase session. The `case.edu` gate remains unchanged for student accounts.
 
 ### Screens
 
 - `(auth)/sign-in` — email field, "Send me a link." Client validates `case.edu` for the error message (per the decision note above — the wireframe's looser `.edu` is superseded); the server enforces it. On send the form is *replaced* by the success state, not annotated: there is nothing left to do here, and a live button only rate-limits the link already sent.
+- The same screen carries an "I'm a judge" action. It creates an anonymous Supabase session for that device, skips student onboarding, and allows the same RLS-protected writes as any other authenticated session without collecting an email.
 - `auth/callback` — deep-link target, outside the `(auth)` group so it answers to `/auth/callback` rather than `/callback`. Parses tokens, calls `setSession`, then routes on the device-local onboarding flag ([onboarding.md](onboarding.md)): false → onboarding, true → home. No profile fetch — `setSession` fires `onAuthStateChange` and the provider reads the flag synchronously in that handler.

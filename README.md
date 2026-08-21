@@ -32,7 +32,7 @@ These compile on your machine, install the dev client, and start Metro. Pass `--
 
 Rerun one of these after pulling a change that adds a native module — `react-native-mmkv` and `react-native-maps` are two, so a dev client built before they landed will crash on launch rather than fail gracefully. A JS-only change needs nothing but Metro.
 
-`react-native-maps` uses Apple Maps on iOS (no key). Android Google Maps needs a Maps SDK key in the `react-native-maps` config plugin for a physical-device or store build.
+`react-native-maps` uses Apple Maps on iOS (no key). Android Google Maps needs `GOOGLE_MAPS_ANDROID_API_KEY` in `.env` — `app.config.js` writes it into the native manifest at prebuild. Enable **Maps SDK for Android** in Google Cloud, restrict the key to package `com.spotly.app` plus your debug SHA-1 (`keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android -keypass android`), then rebuild with `npx expo run:android`. Metro reload is not enough.
 
 ### EAS cloud builds
 
@@ -44,6 +44,14 @@ npx eas build --profile development --platform android
 ```
 
 Install the finished build from the EAS dashboard, then start Metro with `npm start` and open the project in the installed client.
+
+A production Android APK (no Metro, shareable install page with a QR code):
+
+```bash
+npx eas build --profile production --platform android
+```
+
+Anyone with the build URL can download and sideload it. Android will warn that the app is not from Play Store — that's expected. Switch the `production` profile back to store distribution (AAB) before a Play upload.
 
 ## Run
 

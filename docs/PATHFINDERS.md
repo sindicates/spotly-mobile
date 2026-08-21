@@ -74,7 +74,7 @@ Five things:
 
 ### Judge access (Spotly-specific)
 
-The `.edu` gate blocks every judge on a `stellic.com` address, and weakening the gate would undercut the feature the pitch leads with. Ship a pre-made, already-onboarded test account alongside the link. Decide before recording the demo video — the video is the fallback if a judge never gets in. See [authentication](features/authentication.md).
+~~The `.edu` gate blocks every judge on a `stellic.com` address, and weakening the gate would undercut the feature the pitch leads with. Ship a pre-made, already-onboarded test account alongside the link. Decide before recording the demo video — the video is the fallback if a judge never gets in.~~ **Superseded 2026-08-21:** the sign-in screen provides an "I'm a judge" button that creates a temporary anonymous Supabase session, skips onboarding, and enables authenticated features. It does not weaken the `case.edu` requirement for students or share one judge account between evaluators. See [authentication](features/authentication.md).
 
 ---
 

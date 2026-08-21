@@ -10,10 +10,18 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "bundleIdentifier": "com.spotly.app",
-      "supportsTablet": false
+      "supportsTablet": false,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.spotly.app",
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyDwHcMtn9KkJ09tC0vtiafDThTQfGF8wNg"
+        }
+      },
       "adaptiveIcon": {
         "backgroundColor": "#208AEF",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -37,7 +45,8 @@
         {
           "backgroundColor": "#208AEF",
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 200
+          "imageWidth": 200,
+          "resizeMode": "contain"
         }
       ],
       [

@@ -13,11 +13,15 @@ import { supabase } from '@/lib/supabase';
 
 type SessionState = {
   session: Session | null;
+  /** True while a judge is previewing the app without an account. */
+  judgeMode: boolean;
   onboardingComplete: boolean;
   /** True until the stored session has been read back. */
   loading: boolean;
   /** Marks onboarding done for the signed-in account and flips the guard. */
   completeOnboarding: () => void;
+  /** Opens the judge preview without creating an auth session. */
+  enterJudgeMode: () => void;
 };
 
 const SessionContext = createContext<SessionState | null>(null);
@@ -42,6 +46,7 @@ export function useSession(): SessionState {
  */
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
+  const [judgeMode, setJudgeMode] = useState(false);
   const [onboardingComplete, setOnboardingComplete] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -51,6 +56,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     function apply(next: Session | null) {
       if (cancelled) return;
       setSession(next);
+      // Supabase anonymous users are authenticated for RLS/RPC purposes, but
+      // they must skip the student onboarding gate.
+      setJudgeMode(next?.user.is_anonymous ?? false);
       setOnboardingComplete(next ? readOnboardingComplete(next.user.id) : false);
       setLoading(false);
     }
@@ -81,9 +89,22 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setOnboardingComplete(true);
   }, [userId]);
 
+  // The anonymous Supabase session is isolated to this device and can be
+  // revoked with the normal sign-out flow; it never becomes a student account.
+  const enterJudgeMode = useCallback(() => {
+    setJudgeMode(true);
+  }, []);
+
   return (
     <SessionContext.Provider
-      value={{ session, onboardingComplete, loading, completeOnboarding }}
+      value={{
+        session,
+        judgeMode,
+        onboardingComplete,
+        loading,
+        completeOnboarding,
+        enterJudgeMode,
+      }}
     >
       {children}
     </SessionContext.Provider>

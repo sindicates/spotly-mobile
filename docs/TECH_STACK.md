@@ -45,7 +45,7 @@ MMKV v4 is Nitro-based: it needs `react-native-nitro-modules` (a peer dependency
 
 **Location.** `NSLocationWhenInUseUsageDescription` / Android fine+coarse are declared. The Map tab is the screen that needs the fix — request permission there and nowhere else. Check-ins stay trust-based (OCC-5). Denied permission still shows the campus map; it does not block the tab (MAP-4).
 
-**Maps.** `react-native-maps`, not `expo-maps` (alpha). Apple Maps on iOS needs no key. Android Google Maps needs a Maps SDK key in the `react-native-maps` config plugin for a store or physical-device build; iPhone-first is enough to ship the tab. This is a native module — rebuild the dev client after install (`npx expo run:ios`).
+**Maps.** `react-native-maps`, not `expo-maps` (alpha). Apple Maps on iOS needs no key. Android Google Maps needs `GOOGLE_MAPS_ANDROID_API_KEY` in `.env`; `app.config.js` injects it into the `react-native-maps` config plugin at prebuild. Restrict the key to package `com.spotly.app` plus the debug (or Play) SHA-1. Rebuild after setting it (`npx expo run:android`) — Metro reload does not rewrite AndroidManifest. This is a native module — rebuild the dev client after install (`npx expo run:ios`).
 
 **Haptics.** `expo-haptics` talks to the Taptic Engine on iOS and the vibrator on Android. Android `VIBRATE` is added by the package. Intensity and when-to-fire live in `src/lib/haptics.ts` so a screen cannot pick a heavier impact than another. The helpers no-op on web (and therefore during Node prerender) and swallow failures — Low Power Mode and a user-disabled Taptic Engine must not break a press handler. There is no in-app toggle; the OS setting is enough.
 
@@ -96,8 +96,8 @@ The Anthropic key is optional: without it search degrades to cosine ranking.
 | --- | --- |
 | `development` | Dev client, internal distro, physical device (`simulator: false`) |
 | `development-simulator` | Same, iOS Simulator |
-| `preview` | Internal distro of a release-shaped binary |
-| `production` | Store / TestFlight; `autoIncrement` from EAS |
+| `preview` | Internal distro of a release-shaped binary (Android APK) |
+| `production` | Release binary, internal distro so the EAS page has a shareable install link + QR. Android is an APK (sideload), not a Play Store AAB. `autoIncrement` from EAS. Switch `distribution` back to `store` and drop `buildType: apk` before a Play upload. |
 
 Prefer `npx expo run:ios` / `npx expo run:android` when a Mac (or Android Studio) is available. Use EAS cloud builds when it isn't. Setup commands live in the [README](../README.md).
 
@@ -113,6 +113,7 @@ Only `EXPO_PUBLIC_*` vars are inlined into the shipped bundle. They must be safe
 | --- | --- | --- |
 | `EXPO_PUBLIC_SUPABASE_URL` | `.env` (client) | Supabase client |
 | `EXPO_PUBLIC_SUPABASE_ANON_KEY` | `.env` (client) | Supabase client — the only key that belongs on-device |
+| `GOOGLE_MAPS_ANDROID_API_KEY` | `.env` (native prebuild) | Maps SDK for Android. Written into AndroidManifest by `app.config.js`. Restrict by package + SHA-1; not `EXPO_PUBLIC_`. |
 | `OPENAI_API_KEY` | `supabase secrets set` | Edge Functions `embed` and `search` |
 | `ANTHROPIC_API_KEY` | `supabase secrets set` | Edge Function `search` — the SEARCH-5 rerank judge. Optional; absent, search falls back to cosine ranking |
 | `SUPABASE_SERVICE_ROLE_KEY` | local shell, never committed | Seed and backfill scripts (`db:embeddings`, `db:images`). Bypasses RLS. Must belong to the same stack as the URL above. |
